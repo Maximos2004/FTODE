@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Max's Downloader - Settings & Setup</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="options-layout">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-brand">
+        <div class="logo-box">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 3V15M12 15L7.5 10.5M12 15L16.5 10.5" stroke="url(#opt-logo)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 18C4 19.1046 4.89543 20 6 20H18C19.1046 20 20 19.1046 20 18" stroke="url(#opt-logo2)" stroke-width="2.5" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="opt-logo" x1="7.5" y1="3" x2="16.5" y2="15" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#818cf8"/>
+                <stop offset="1" stop-color="#10b981"/>
+              </linearGradient>
+              <linearGradient id="opt-logo2" x1="4" y1="20" x2="20" y2="20" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#10b981"/>
+                <stop offset="1" stop-color="#06b6d4"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div>
+          <h1 class="header-title">Max's Downloader Settings</h1>
+          <p class="header-sub">Configure formats, native yt-dlp backend, and terminal streaming</p>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <span class="version-tag">Manifest V3 • v1.0.0</span>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <!-- Left Column: Settings Cards -->
+      <div class="settings-column">
+        <!-- Media Formats Card -->
+        <section class="card">
+          <div class="card-header">
+            <div class="card-icon indigo">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                <line x1="7" y1="2" x2="7" y2="22"></line>
+                <line x1="17" y1="2" x2="17" y2="22"></line>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+              </svg>
+            </div>
+            <h2 class="card-title">Default Media Formats</h2>
+          </div>
+
+          <div class="form-grid">
+            <!-- Video Format -->
+            <div class="form-group">
+              <label for="video-format" class="form-label">Video Download Format</label>
+              <select id="video-format" class="custom-select">
+                <option value="MP4">MP4 (H.264 / AAC - Recommended / Universal)</option>
+                <option value="WEBM">WEBM (VP9 / AV1 / Opus - Open Web)</option>
+                <option value="MKV">MKV (Matroska - Multi-Audio & Subtitles)</option>
+                <option value="MOV">MOV (Apple QuickTime / ProRes)</option>
+                <option value="AVI">AVI (Audio Video Interleave - Windows)</option>
+                <option value="WMV">WMV (Windows Media Video)</option>
+                <option value="FLV">FLV (Flash Video Container)</option>
+                <option value="TS">TS (MPEG Transport Stream / Broadcast)</option>
+                <option value="3GP">3GP (Mobile 3GPP Format)</option>
+                <option value="OGV">OGV (Ogg Theora Open Video)</option>
+                <option value="GIF">GIF (Animated GIF Converter)</option>
+              </select>
+              <span class="field-hint">Format for primary Video Action button in popup.</span>
+            </div>
+
+            <!-- Video Quality -->
+            <div class="form-group">
+              <label for="video-quality" class="form-label">Target Video Quality</label>
+              <select id="video-quality" class="custom-select">
+                <option value="best">Best Available (Auto Max Resolution)</option>
+                <option value="4320p">8K Ultra HD (4320p)</option>
+                <option value="2160p">4K Ultra HD (2160p)</option>
+                <option value="1440p">2K Quad HD (1440p)</option>
+                <option value="1080p">Full HD (1080p)</option>
+                <option value="720p">HD (720p)</option>
+                <option value="480p">SD (480p)</option>
+                <option value="360p">Low Bandwidth (360p)</option>
+                <option value="240p">Minimal (240p)</option>
+              </select>
+            </div>
+
+            <!-- Audio Format -->
+            <div class="form-group">
+              <label for="audio-format" class="form-label">Audio Download Format</label>
+              <select id="audio-format" class="custom-select">
+                <option value="MP3">MP3 (MPEG-1 Audio Layer III - Most Compatible)</option>
+                <option value="M4A">M4A (Apple AAC - High Fidelity)</option>
+                <option value="FLAC">FLAC (Free Lossless Audio Codec - Studio Quality)</option>
+                <option value="WAV">WAV (Uncompressed PCM Waveform)</option>
+                <option value="OPUS">OPUS (Modern High-Efficiency Audio)</option>
+                <option value="OGG">OGG / Vorbis (Open Source Audio)</option>
+                <option value="AAC">AAC (Raw Advanced Audio Stream)</option>
+                <option value="ALAC">ALAC (Apple Lossless Audio Codec)</option>
+                <option value="WMA">WMA (Windows Media Audio)</option>
+                <option value="AIFF">AIFF (Audio Interchange File Format)</option>
+                <option value="AC3">AC3 (Dolby Digital Audio)</option>
+                <option value="MP2">MP2 (MPEG Audio Layer II - Broadcast)</option>
+              </select>
+              <span class="field-hint">Format for primary Audio Action button in popup.</span>
+            </div>
+
+            <!-- Audio Quality -->
+            <div class="form-group">
+              <label for="audio-quality" class="form-label">Audio Quality / Bitrate</label>
+              <select id="audio-quality" class="custom-select">
+                <option value="best">Best Available (Auto Highest Bitrate)</option>
+                <option value="320k">320 kbps (Extreme / Maximum MP3 Quality)</option>
+                <option value="256k">256 kbps (Very High Fidelity)</option>
+                <option value="192k">192 kbps (Standard High Quality)</option>
+                <option value="160k">160 kbps (Medium High Quality)</option>
+                <option value="128k">128 kbps (Standard Quality / Compact)</option>
+                <option value="96k">96 kbps (Voice / Podcast Optimized)</option>
+                <option value="64k">64 kbps (Low Bitrate / Data Saver)</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <!-- Storage & Path Card -->
+        <section class="card">
+          <div class="card-header">
+            <div class="card-icon emerald">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>
+            </div>
+            <h2 class="card-title">Storage & Location</h2>
+          </div>
+
+          <div class="form-group">
+            <label for="download-folder" class="form-label">Download Folder Name</label>
+            <div class="input-with-prefix">
+              <span class="input-prefix">~/Downloads/</span>
+              <input type="text" id="download-folder" class="custom-input" value="MaxsDownloads" placeholder="MaxsDownloads">
+            </div>
+            <span class="field-hint">Files are automatically saved into your user's Downloads directory.</span>
+          </div>
+        </section>
+
+        <!-- Debug & Advanced Card -->
+        <section class="card">
+          <div class="card-header">
+            <div class="card-icon cyan">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="4 17 10 11 4 5"></polyline>
+                <line x1="12" y1="19" x2="20" y2="19"></line>
+              </svg>
+            </div>
+            <h2 class="card-title">Console & Diagnostics</h2>
+          </div>
+
+          <!-- Toggle -->
+          <div class="toggle-group">
+            <div class="toggle-info">
+              <span class="toggle-title">Enable Detailed Debug & Console Stream</span>
+              <span class="toggle-description">Displays real-time yt-dlp logs, download speeds, and FFmpeg remuxing outputs directly inside the popup terminal.</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="enable-debug" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Save Button Bar -->
+        <div class="actions-bar">
+          <button id="btn-save-settings" class="btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            Save Settings
+          </button>
+          <button id="btn-reset-settings" class="btn-secondary">Reset Defaults</button>
+        </div>
+      </div>
+
+      <!-- Right Column: Host Setup & Status -->
+      <div class="sidebar-column">
+        <!-- Native Host Status Card -->
+        <section class="card host-card">
+          <div class="card-header">
+            <div class="card-icon amber">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                <line x1="6" y1="18" x2="6.01" y2="18"></line>
+              </svg>
+            </div>
+            <h2 class="card-title">Native Messaging Host</h2>
+          </div>
+
+          <div class="host-status-box" id="host-status-box">
+            <div class="status-indicator">
+              <span class="status-bubble" id="host-bubble"></span>
+              <span class="status-label" id="host-label">Checking Host...</span>
+            </div>
+            <button id="btn-test-host" class="btn-sm">Test Connection</button>
+          </div>
+
+          <div class="diagnostics-panel" id="diagnostics-panel">
+            <div class="diag-item">
+              <span class="diag-key">Extension ID:</span>
+              <div class="diag-val-row">
+                <code id="extension-id-val">Loading...</code>
+                <button id="btn-copy-ext-id" class="btn-copy" title="Copy Extension ID">Copy</button>
+              </div>
+            </div>
+            <div class="diag-item">
+              <span class="diag-key">Native Host Name:</span>
+              <code>com.maxsdownloader.host</code>
+            </div>
+            <div class="diag-item">
+              <span class="diag-key">yt-dlp Engine:</span>
+              <code id="diag-ytdlp">Detecting...</code>
+            </div>
+            <div class="diag-item">
+              <span class="diag-key">FFmpeg Remuxer:</span>
+              <code id="diag-ffmpeg">Detecting...</code>
+            </div>
+          </div>
+
+          <!-- Tool Management: Install / Check Updates -->
+          <div class="bootstrap-section">
+            <button id="btn-bootstrap-tools" class="btn-bootstrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+              </svg>
+              <span id="label-bootstrap-tools">Check for Updates</span>
+            </button>
+            <div class="bootstrap-progress-box hidden" id="bootstrap-progress-box">
+              <div class="bootstrap-status-text" id="bootstrap-status-text">Starting auto-download...</div>
+              <div class="bootstrap-track">
+                <div class="bootstrap-fill" id="bootstrap-fill" style="width: 0%;"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Quick Info Card -->
+        <section class="card">
+          <div class="card-header">
+            <div class="card-icon indigo">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+            </div>
+            <h2 class="card-title">Quick Info & Features</h2>
+          </div>
+
+          <div class="guide-steps">
+            <div class="step-item">
+              <div class="step-num">⚡</div>
+              <div class="step-body">
+                <b>Universal Media Sniffer:</b> Automatically intercepts HTML5 audio/video, HLS/DASH adaptive streams, and media across 1,000+ sites.
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">🎬</div>
+              <div class="step-body">
+                <b>Lossless Remuxing & 8K:</b> Bundled <code>FFmpeg</code> engine delivers high-speed audio-video multiplexing, format conversion, and GIF creation.
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">📁</div>
+              <div class="step-body">
+                <b>Direct Storage:</b> Files are saved directly to your selected <code>~/Downloads/</code> subfolder with live progress and unthrottled speeds.
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- Toast Notification -->
+    <div class="toast hidden" id="toast">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+      <span id="toast-message">Settings saved successfully!</span>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "com.maxsdownloader.host",
+  "description": "Max's Downloader Native Messaging Host",
+  "path": "run_host.bat",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://iabbelaamkcbkklcipbbkgegfenjhklc/"
+  ]
+}

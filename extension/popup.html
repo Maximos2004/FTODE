@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Max's Downloader</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 3V15M12 15L7.5 10.5M12 15L16.5 10.5" stroke="url(#logo-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 18C4 19.1046 4.89543 20 6 20H18C19.1046 20 20 19.1046 20 18" stroke="url(#logo-grad2)" stroke-width="2.5" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="logo-grad" x1="7.5" y1="3" x2="16.5" y2="15" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#818cf8"/>
+                <stop offset="1" stop-color="#10b981"/>
+              </linearGradient>
+              <linearGradient id="logo-grad2" x1="4" y1="20" x2="20" y2="20" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#10b981"/>
+                <stop offset="1" stop-color="#06b6d4"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">Max's Downloader</h1>
+          <span class="brand-badge">v1.0</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button id="btn-refresh" class="icon-btn" title="Rescan Page Media">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+        </button>
+
+        <button id="btn-toggle-terminal" class="icon-btn" title="Toggle Live Terminal">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 17 10 11 4 5"></polyline>
+            <line x1="12" y1="19" x2="20" y2="19"></line>
+          </svg>
+        </button>
+
+        <button id="btn-options" class="icon-btn" title="Open Settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Detection Status Card -->
+    <section class="status-card" id="status-card">
+      <div class="status-badge-wrapper">
+        <span class="status-badge" id="status-badge">
+          <span class="status-dot"></span>
+          <span class="status-text" id="status-text">Detecting media...</span>
+        </span>
+        <span class="media-type-tag" id="media-type-tag">AUTO</span>
+      </div>
+
+      <div class="media-meta">
+        <h2 class="media-title" id="media-title" title="No active media target">Scanning active tab...</h2>
+        <div class="media-source-info">
+          <span class="source-domain" id="source-domain">-</span>
+          <span class="source-divider">•</span>
+          <span class="source-streams-count" id="streams-count">0 stream(s) found</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Native Host Alert (if disconnected) -->
+    <div class="host-alert hidden" id="host-alert">
+      <div class="host-alert-content">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <span>Native host setup required for downloads.</span>
+      </div>
+      <button class="btn-setup-host" id="btn-setup-host">Setup</button>
+    </div>
+
+    <!-- Primary Action Buttons -->
+    <section class="action-grid">
+      <!-- Video Download Button -->
+      <button class="action-btn video-btn" id="btn-download-video" disabled>
+        <div class="action-btn-glow"></div>
+        <div class="btn-icon-wrapper video-icon-bg">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+            <line x1="7" y1="2" x2="7" y2="22"></line>
+            <line x1="17" y1="2" x2="17" y2="22"></line>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <line x1="2" y1="7" x2="7" y2="7"></line>
+            <line x1="2" y1="17" x2="7" y2="17"></line>
+            <line x1="17" y1="17" x2="22" y2="17"></line>
+            <line x1="17" y1="7" x2="22" y2="7"></line>
+          </svg>
+        </div>
+        <div class="btn-content">
+          <div class="btn-title-row">
+            <span class="btn-main-label" id="label-video">Download MP4</span>
+            <span class="format-badge" id="badge-video-format">MP4</span>
+          </div>
+          <span class="btn-subtext">Highest Video Quality + Audio</span>
+        </div>
+        <div class="btn-arrow">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <polyline points="19 12 12 19 5 12"></polyline>
+          </svg>
+        </div>
+      </button>
+
+      <!-- Audio Download Button -->
+      <button class="action-btn audio-btn" id="btn-download-audio" disabled>
+        <div class="action-btn-glow"></div>
+        <div class="btn-icon-wrapper audio-icon-bg">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
+          </svg>
+        </div>
+        <div class="btn-content">
+          <div class="btn-title-row">
+            <span class="btn-main-label" id="label-audio">Download MP3</span>
+            <span class="format-badge audio" id="badge-audio-format">MP3</span>
+          </div>
+          <span class="btn-subtext">High Bitrate Audio Extraction</span>
+        </div>
+        <div class="btn-arrow">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <polyline points="19 12 12 19 5 12"></polyline>
+          </svg>
+        </div>
+      </button>
+    </section>
+
+    <!-- Active Download Progress Bar (When Active) -->
+    <section class="progress-section hidden" id="progress-section">
+      <div class="progress-info-row">
+        <span class="progress-status-label" id="progress-status">Downloading...</span>
+        <span class="progress-percentage" id="progress-percent">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill" style="width: 0%;"></div>
+      </div>
+      <div class="progress-metrics">
+        <span class="metric-item">Speed: <b id="metric-speed">--</b></span>
+        <span class="metric-item">ETA: <b id="metric-eta">--</b></span>
+        <button class="btn-cancel-job" id="btn-cancel-job" title="Cancel Download">Cancel</button>
+      </div>
+    </section>
+
+    <!-- Detected Streams Dropdown / Accordion -->
+    <section class="streams-accordion hidden" id="streams-accordion">
+      <button class="accordion-toggle" id="btn-accordion-toggle">
+        <span class="toggle-title">Detected Stream Sources (<span id="accordion-count">0</span>)</span>
+        <svg class="toggle-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+      <div class="streams-list hidden" id="streams-list">
+        <!-- Injected stream cards -->
+      </div>
+    </section>
+
+    <!-- Debug Terminal View -->
+    <section class="terminal-container hidden" id="terminal-container">
+      <div class="terminal-header">
+        <div class="terminal-dots">
+          <span class="terminal-dot red"></span>
+          <span class="terminal-dot yellow"></span>
+          <span class="terminal-dot green"></span>
+          <span class="terminal-title">yt-dlp & FFmpeg Live Stream</span>
+        </div>
+        <div class="terminal-controls">
+          <button class="term-btn" id="btn-term-copy" title="Copy Terminal Logs">Copy</button>
+          <button class="term-btn" id="btn-term-clear" title="Clear Logs">Clear</button>
+        </div>
+      </div>
+      <div class="terminal-body" id="terminal-body">
+        <div class="term-line info">[SYSTEM] Max's Downloader Ready.</div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-left">
+        <span class="host-pill" id="host-pill">
+          <span class="host-dot"></span>
+          <span id="host-pill-text">Host: Checking...</span>
+        </span>
+      </div>
+      <div class="footer-right">
+        <span class="dest-folder" id="footer-folder">Folder: MaxsDownloads</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
