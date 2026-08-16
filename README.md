@@ -82,9 +82,9 @@ Maxs-Downloader/
 3. Click **Load unpacked** and select the `Maxs-Downloader/extension` folder.
 *(The extension automatically uses a permanent, fixed ID: `iabbelaamkcbkklcipbbkgegfenjhklc`).*
 
-### Step 2: Register Native Host in Windows (1-Click)
-Double-click `install_host.bat` inside `Maxs-Downloader/native_host/` (or run `install_host.bat` in terminal).
-*(Done! Zero manual ID copying or JSON editing required).*
+### Step 2: Run 1-Click Automatic Setup
+Double-click **`setup.bat`** in the root project folder.
+*(This automatically registers the Native Host in Windows Registry AND downloads the latest `yt-dlp` and `FFmpeg` binaries into `native_host/bin/` if missing. Zero manual configuration required!).*
 
 ### Step 3: Test & Download!
 1. Open any media page (e.g., YouTube, Vimeo, direct MP4/MP3).
