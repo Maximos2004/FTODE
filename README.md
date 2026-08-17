@@ -3,7 +3,7 @@
 > A minimalist, high-performance media stream sniffer and video/audio downloader for Google Chrome powered by Python Native Messaging and `yt-dlp`.
 
 ---
-
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/F6V82112T7)
 ## ⚡ Overview
 
 **Max's Downloader** is a modern Chrome Manifest V3 extension paired with a Python Native Messaging backend. It detects media streams in real-time across the web (including direct HTML5 media and adaptive HLS / DASH / YouTube / Vimeo streams) and provides a two-button download interface for the highest quality video and audio.
