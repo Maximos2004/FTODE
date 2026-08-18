@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const audioFormatSelect = document.getElementById('audio-format');
   const audioQualitySelect = document.getElementById('audio-quality');
   const downloadFolderInput = document.getElementById('download-folder');
+  const existingFileActionSelect = document.getElementById('existing-file-action');
   const enableDebugToggle = document.getElementById('enable-debug');
 
   const btnSaveSettings = document.getElementById('btn-save-settings');
@@ -34,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     audioFormat: 'MP3',
     audioQuality: 'best',
     downloadFolder: 'MaxsDownloads',
+    existingFileAction: 'copy',
     enableDebug: true
   };
 
@@ -62,6 +64,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       audioFormatSelect.value = settings.audioFormat || 'MP3';
       audioQualitySelect.value = settings.audioQuality || 'best';
       downloadFolderInput.value = settings.downloadFolder || 'MaxsDownloads';
+      if (existingFileActionSelect) {
+        existingFileActionSelect.value = settings.existingFileAction || 'copy';
+      }
       enableDebugToggle.checked = settings.enableDebug !== false;
     } catch (err) {
       console.error('[Options] Load settings error:', err);
@@ -78,6 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       audioFormat: audioFormatSelect.value,
       audioQuality: audioQualitySelect.value,
       downloadFolder: downloadFolderInput.value.trim() || 'MaxsDownloads',
+      existingFileAction: existingFileActionSelect ? existingFileActionSelect.value : 'copy',
       enableDebug: enableDebugToggle.checked
     };
 
@@ -103,6 +109,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     audioFormatSelect.value = DEFAULTS.audioFormat;
     audioQualitySelect.value = DEFAULTS.audioQuality;
     downloadFolderInput.value = DEFAULTS.downloadFolder;
+    if (existingFileActionSelect) {
+      existingFileActionSelect.value = DEFAULTS.existingFileAction;
+    }
     enableDebugToggle.checked = DEFAULTS.enableDebug;
 
     await chrome.storage.sync.set(DEFAULTS);

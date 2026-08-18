@@ -147,6 +147,16 @@
             </div>
             <span class="field-hint">Files are automatically saved into your user's Downloads directory.</span>
           </div>
+
+          <div class="form-group" style="margin-top: 14px;">
+            <label for="existing-file-action" class="form-label">Duplicate / Already Downloaded Files</label>
+            <select id="existing-file-action" class="custom-select">
+              <option value="copy">Download Again (Add "(1)" Copy) - Default</option>
+              <option value="skip">Skip Already Downloaded Files (No Re-download)</option>
+              <option value="overwrite">Overwrite Existing File (Replace)</option>
+            </select>
+            <span class="field-hint">Controls what happens if a video or playlist track is already downloaded.</span>
+          </div>
         </section>
 
         <!-- Debug & Advanced Card -->

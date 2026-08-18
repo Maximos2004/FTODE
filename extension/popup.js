@@ -69,17 +69,128 @@ document.addEventListener('DOMContentLoaded', async () => {
       const u = new URL(url);
       const host = u.hostname.toLowerCase();
       const path = u.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+      const search = u.search.toLowerCase();
 
+      // Generic root homepage
+      if (path === '/' || path === '' || path === '/home' || path === '/index.html' || path === '/index.php') {
+        return true;
+      }
+
+      // YouTube home feeds & navigation
       if (host.includes('youtube.com') || host.includes('youtu.be')) {
-        if (path === '/' || path === '' || path === '/feed/subscriptions' || path === '/feed/history' || path === '/feed/you' || path === '/feed/trending' || path === '/feed/explore' || path === '/results' || path === '/gaming') {
-          return true;
+        if (path === '/watch' || path.startsWith('/shorts/') || path.startsWith('/live/') || path.startsWith('/embed/')) {
+          return false;
         }
-        if (path.startsWith('/@') && !path.includes('/watch') && !path.includes('/streams') && !path.includes('/live')) {
+        if (path === '/playlist' && search.includes('list=')) {
+          return false;
+        }
+        if (
+          path === '/' || path === '' ||
+          path.startsWith('/feed') ||
+          path === '/results' ||
+          path === '/gaming' ||
+          path === '/explore' ||
+          path === '/trending' ||
+          path.startsWith('/channel') ||
+          path.startsWith('/c/') ||
+          path.startsWith('/user/') ||
+          path.startsWith('/@')
+        ) {
           return true;
         }
       }
 
-      if (path === '/' || path === '') return true;
+      // Twitch
+      if (host.includes('twitch.tv')) {
+        if (path === '/' || path === '/directory' || path.startsWith('/directory/') || path.startsWith('/p/')) {
+          return true;
+        }
+      }
+
+      // SoundCloud
+      if (host.includes('soundcloud.com')) {
+        if (path === '/' || path === '/discover' || path === '/stream' || path === '/feed' || path === '/charts' || path.startsWith('/you/') || path === '/search') {
+          return true;
+        }
+      }
+
+      // Vimeo
+      if (host.includes('vimeo.com')) {
+        if (path === '/' || path === '/home' || path === '/watch' || path === '/explore' || path === '/channels' || path === '/categories') {
+          return true;
+        }
+      }
+
+      // TikTok
+      if (host.includes('tiktok.com')) {
+        if (path === '/' || path === '/foryou' || path === '/following' || path === '/explore' || path === '/live') {
+          return true;
+        }
+      }
+
+      // Twitter / X
+      if (host.includes('twitter.com') || host.includes('x.com')) {
+        if (path === '/' || path === '/home' || path === '/explore' || path === '/notifications' || path === '/messages' || path === '/search') {
+          return true;
+        }
+      }
+
+      // Reddit
+      if (host.includes('reddit.com')) {
+        if (path === '/' || path === '/r/all' || path === '/r/popular' || (path.startsWith('/r/') && !path.includes('/comments/')) || path.startsWith('/user/') || path === '/hot' || path === '/new' || path === '/top') {
+          return true;
+        }
+      }
+
+      // Facebook
+      if (host.includes('facebook.com') || host.includes('fb.watch')) {
+        if (path === '/' || path === '/home.php' || path === '/feed' || (path === '/watch' && !search.includes('v='))) {
+          return true;
+        }
+      }
+
+      // Instagram
+      if (host.includes('instagram.com')) {
+        if (path === '/' || path === '/explore' || path === '/explore/' || path === '/reels' || path === '/reels/' || path === '/direct/') {
+          return true;
+        }
+      }
+
+      // Bandcamp
+      if (host.includes('bandcamp.com')) {
+        if (path === '/' || path.startsWith('/tag/') || path === '/discover') {
+          return true;
+        }
+      }
+
+      // Dailymotion
+      if (host.includes('dailymotion.com')) {
+        if (path === '/' || path === '/feed' || path === '/trending') {
+          return true;
+        }
+      }
+
+      // Bilibili
+      if (host.includes('bilibili.com')) {
+        if (path === '/' || path.startsWith('/v/')) {
+          return true;
+        }
+      }
+
+      // Kick
+      if (host.includes('kick.com')) {
+        if (path === '/' || path === '/browse' || path.startsWith('/category/')) {
+          return true;
+        }
+      }
+
+      // Rumble
+      if (host.includes('rumble.com')) {
+        if (path === '/' || path === '/videos' || path === '/browse') {
+          return true;
+        }
+      }
+
       return false;
     } catch {
       return false;
@@ -177,12 +288,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function isPlaylistPageUrl(url) {
     if (!url) return false;
+    if (isHomePageOrFeed(url)) return false;
     try {
       const u = new URL(url);
       const host = u.hostname.toLowerCase();
       const path = u.pathname.toLowerCase();
+      const search = u.search.toLowerCase();
       if (host.includes('youtube.com') || host.includes('youtu.be')) {
-        return path.includes('/playlist');
+        return path.includes('/playlist') && search.includes('list=');
       }
       if (host.includes('soundcloud.com') && (path.includes('/sets/') || path.includes('/albums/'))) {
         return true;
@@ -203,10 +316,12 @@ document.addEventListener('DOMContentLoaded', async () => {
    * Render popup UI based on current tab state
    */
   function renderUI() {
+    const isHome = (currentTab && currentTab.url && isHomePageOrFeed(currentTab.url)) || (tabMediaState && isHomePageOrFeed(tabMediaState.pageUrl));
+
     // 1. Settings & Button Labels
     const vFmt = (currentSettings.videoFormat || 'MP4').toUpperCase();
     const aFmt = (currentSettings.audioFormat || 'MP3').toUpperCase();
-    const isPlaylist = (tabMediaState && tabMediaState.isPlaylist) || (currentTab && isPlaylistPageUrl(currentTab.url));
+    const isPlaylist = !isHome && ((tabMediaState && tabMediaState.isPlaylist) || (currentTab && isPlaylistPageUrl(currentTab.url)));
 
     if (isPlaylist) {
       labelVideo.textContent = `Download Playlist (${vFmt})`;
@@ -221,11 +336,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     footerFolder.textContent = `Folder: ${currentSettings.downloadFolder || 'MaxsDownloads'}`;
 
     // 2. Detection Status
-    const isStream = tabMediaState ? tabMediaState.isStreamDomain : false;
-    const items = (tabMediaState && tabMediaState.items) ? tabMediaState.items : [];
-    const hasVideo = isStream || items.some(i => i.type === 'video');
-    const hasAudio = isStream || items.some(i => i.type === 'audio');
-    const hasAnyMedia = isPlaylist || hasVideo || hasAudio;
+    const isStream = isHome ? false : (tabMediaState ? tabMediaState.isStreamDomain : false);
+    const items = (!isHome && tabMediaState && tabMediaState.items) ? tabMediaState.items : [];
+    const hasVideo = !isHome && (isStream || items.some(i => i.type === 'video'));
+    const hasAudio = !isHome && (isStream || items.some(i => i.type === 'audio'));
+    const hasAnyMedia = !isHome && (isPlaylist || hasVideo || hasAudio);
     const totalCount = isStream ? Math.max(1, items.length) : items.length;
 
     // Display title & domain
@@ -255,7 +370,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     mediaTitle.textContent = displayTitle;
     mediaTitle.title = displayTitle;
     sourceDomain.textContent = domainStr;
-    streamsCount.textContent = hasAnyMedia ? (isPlaylist ? 'Full Playlist Batch' : (isStream ? 'High Quality Media Stream' : `${totalCount} media source(s)`)) : 'No media streams found';
+    streamsCount.textContent = hasAnyMedia ? (isPlaylist ? 'Full Playlist Batch' : (isStream ? 'High Quality Media Stream' : `${totalCount} media source(s)`)) : 'No media detected';
 
     // Status Badge States
     statusBadge.className = 'status-badge';
@@ -354,15 +469,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       btn.className = 'btn-mini-download';
       btn.textContent = 'Download';
       btn.onclick = () => {
-        let downloadTarget = item.url;
-        const isStream = tabMediaState && tabMediaState.isStreamDomain;
-        if (isStream || !downloadTarget || downloadTarget.startsWith('blob:') || downloadTarget.startsWith('data:')) {
-          downloadTarget = currentTab ? currentTab.url : downloadTarget;
-        } else if (currentTab && currentTab.url) {
-          try {
-            downloadTarget = new URL(downloadTarget, currentTab.url).href;
-          } catch {}
-        }
+        let downloadTarget = (currentTab && currentTab.url) || (tabMediaState && tabMediaState.pageUrl) || item.url;
         startDownloadJob(item.type, downloadTarget, item.title || (tabMediaState ? tabMediaState.pageTitle : ''));
       };
 
@@ -503,8 +610,8 @@ document.addEventListener('DOMContentLoaded', async () => {
    */
   async function startDownloadJob(targetType, targetUrl, targetTitle) {
     const format = targetType === 'audio' ? currentSettings.audioFormat : currentSettings.videoFormat;
-    const isPlaylist = tabMediaState ? tabMediaState.isPlaylist : false;
     const url = targetUrl || (currentTab ? currentTab.url : '');
+    const isPlaylist = isPlaylistPageUrl(currentTab ? currentTab.url : '') || isPlaylistPageUrl(url) || (tabMediaState ? Boolean(tabMediaState.isPlaylist) : false);
     const title = targetTitle || (tabMediaState ? tabMediaState.pageTitle : (currentTab ? currentTab.title : 'Media Download'));
 
     if (!url) {
@@ -545,27 +652,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Action Buttons
   btnDownloadVideo.addEventListener('click', () => {
-    let targetUrl = '';
-    const isStream = tabMediaState && tabMediaState.isStreamDomain;
-    if (!isStream && tabMediaState && tabMediaState.items) {
+    let targetUrl = (currentTab && currentTab.url) || (tabMediaState && tabMediaState.pageUrl) || '';
+    if (!targetUrl && tabMediaState && tabMediaState.items) {
       const v = tabMediaState.items.find(i => i.type === 'video' && !i.isBlob && !i.isManifest);
       if (v) targetUrl = v.url;
-    }
-    if (!targetUrl && currentTab && currentTab.url) {
-      targetUrl = currentTab.url;
     }
     startDownloadJob('video', targetUrl, tabMediaState ? tabMediaState.pageTitle : '');
   });
 
   btnDownloadAudio.addEventListener('click', () => {
-    let targetUrl = '';
-    const isStream = tabMediaState && tabMediaState.isStreamDomain;
-    if (!isStream && tabMediaState && tabMediaState.items) {
+    let targetUrl = (currentTab && currentTab.url) || (tabMediaState && tabMediaState.pageUrl) || '';
+    if (!targetUrl && tabMediaState && tabMediaState.items) {
       const a = tabMediaState.items.find(i => i.type === 'audio' && !i.isBlob && !i.isManifest);
       if (a) targetUrl = a.url;
-    }
-    if (!targetUrl && currentTab && currentTab.url) {
-      targetUrl = currentTab.url;
     }
     startDownloadJob('audio', targetUrl, tabMediaState ? tabMediaState.pageTitle : '');
   });

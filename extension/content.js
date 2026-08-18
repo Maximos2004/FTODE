@@ -49,27 +49,126 @@
       const u = new URL(url);
       const host = u.hostname.toLowerCase();
       const path = u.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+      const search = u.search.toLowerCase();
+
+      // Generic root homepage
+      if (path === '/' || path === '' || path === '/home' || path === '/index.html' || path === '/index.php') {
+        return true;
+      }
 
       // YouTube home feeds & navigation
       if (host.includes('youtube.com') || host.includes('youtu.be')) {
-        if (path === '/' || path === '' || path === '/feed/subscriptions' || path === '/feed/history' || path === '/feed/you' || path === '/feed/trending' || path === '/feed/explore' || path === '/results' || path === '/gaming') {
-          return true;
+        if (path === '/watch' || path.startsWith('/shorts/') || path.startsWith('/live/') || path.startsWith('/embed/')) {
+          return false;
         }
-        if (path.startsWith('/@') && !path.includes('/watch') && !path.includes('/streams') && !path.includes('/live')) {
+        if (path === '/playlist' && search.includes('list=')) {
+          return false;
+        }
+        if (
+          path === '/' || path === '' ||
+          path.startsWith('/feed') ||
+          path === '/results' ||
+          path === '/gaming' ||
+          path === '/explore' ||
+          path === '/trending' ||
+          path.startsWith('/channel') ||
+          path.startsWith('/c/') ||
+          path.startsWith('/user/') ||
+          path.startsWith('/@')
+        ) {
           return true;
         }
       }
 
       // Twitch
       if (host.includes('twitch.tv')) {
-        if (path === '/' || path === '/directory' || path.startsWith('/directory/')) {
+        if (path === '/' || path === '/directory' || path.startsWith('/directory/') || path.startsWith('/p/')) {
           return true;
         }
       }
 
-      // Generic home root
-      if (path === '/' || path === '') {
-        return true;
+      // SoundCloud
+      if (host.includes('soundcloud.com')) {
+        if (path === '/' || path === '/discover' || path === '/stream' || path === '/feed' || path === '/charts' || path.startsWith('/you/') || path === '/search') {
+          return true;
+        }
+      }
+
+      // Vimeo
+      if (host.includes('vimeo.com')) {
+        if (path === '/' || path === '/home' || path === '/watch' || path === '/explore' || path === '/channels' || path === '/categories') {
+          return true;
+        }
+      }
+
+      // TikTok
+      if (host.includes('tiktok.com')) {
+        if (path === '/' || path === '/foryou' || path === '/following' || path === '/explore' || path === '/live') {
+          return true;
+        }
+      }
+
+      // Twitter / X
+      if (host.includes('twitter.com') || host.includes('x.com')) {
+        if (path === '/' || path === '/home' || path === '/explore' || path === '/notifications' || path === '/messages' || path === '/search') {
+          return true;
+        }
+      }
+
+      // Reddit
+      if (host.includes('reddit.com')) {
+        if (path === '/' || path === '/r/all' || path === '/r/popular' || (path.startsWith('/r/') && !path.includes('/comments/')) || path.startsWith('/user/') || path === '/hot' || path === '/new' || path === '/top') {
+          return true;
+        }
+      }
+
+      // Facebook
+      if (host.includes('facebook.com') || host.includes('fb.watch')) {
+        if (path === '/' || path === '/home.php' || path === '/feed' || (path === '/watch' && !search.includes('v='))) {
+          return true;
+        }
+      }
+
+      // Instagram
+      if (host.includes('instagram.com')) {
+        if (path === '/' || path === '/explore' || path === '/explore/' || path === '/reels' || path === '/reels/' || path === '/direct/') {
+          return true;
+        }
+      }
+
+      // Bandcamp
+      if (host.includes('bandcamp.com')) {
+        if (path === '/' || path.startsWith('/tag/') || path === '/discover') {
+          return true;
+        }
+      }
+
+      // Dailymotion
+      if (host.includes('dailymotion.com')) {
+        if (path === '/' || path === '/feed' || path === '/trending') {
+          return true;
+        }
+      }
+
+      // Bilibili
+      if (host.includes('bilibili.com')) {
+        if (path === '/' || path.startsWith('/v/')) {
+          return true;
+        }
+      }
+
+      // Kick
+      if (host.includes('kick.com')) {
+        if (path === '/' || path === '/browse' || path.startsWith('/category/')) {
+          return true;
+        }
+      }
+
+      // Rumble
+      if (host.includes('rumble.com')) {
+        if (path === '/' || path === '/videos' || path === '/browse') {
+          return true;
+        }
       }
 
       return false;
@@ -96,6 +195,7 @@
    */
   function isPlaylistPage(url) {
     if (!url) return false;
+    if (isHomePageOrFeed(url)) return false;
     try {
       const u = new URL(url);
       const host = u.hostname.toLowerCase();
@@ -104,7 +204,7 @@
 
       // YouTube Playlists (only dedicated playlist view pages, not single watch pages)
       if (host.includes('youtube.com') || host.includes('youtu.be')) {
-        if (path.includes('/playlist')) {
+        if (path.includes('/playlist') && search.includes('list=')) {
           return true;
         }
       }
