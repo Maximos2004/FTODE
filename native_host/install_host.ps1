@@ -9,11 +9,12 @@ Write-Host "===================================================" -ForegroundColo
 Write-Host ""
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ManifestPath = Join-Path $ScriptDir "com.maxsdownloader.host.json"
+$ChromeManifestPath = Join-Path $ScriptDir "com.maxsdownloader.host.json"
+$FirefoxManifestPath = Join-Path $ScriptDir "com.maxsdownloader.host-firefox.json"
 $BatPath = Join-Path $ScriptDir "run_host.bat"
 
-# Update manifest JSON with fixed extension ID
-$manifestContent = @{
+# 1. Update Chrome/Chromium manifest JSON
+$chromeManifestContent = @{
     name = "com.maxsdownloader.host"
     description = "Max's Downloader Native Messaging Host"
     path = $BatPath
@@ -22,20 +23,39 @@ $manifestContent = @{
         "chrome-extension://$ExtensionId/"
     )
 }
+$chromeManifestContent | ConvertTo-Json -Depth 5 | Set-Content -Path $ChromeManifestPath -Encoding UTF8
 
-$manifestContent | ConvertTo-Json -Depth 5 | Set-Content -Path $ManifestPath -Encoding UTF8
+# 2. Update Firefox manifest JSON
+$firefoxManifestContent = @{
+    name = "com.maxsdownloader.host"
+    description = "Max's Downloader Native Messaging Host"
+    path = $BatPath
+    type = "stdio"
+    allowed_extensions = @(
+        "maxs-downloader@maxakt.local"
+    )
+}
+$firefoxManifestContent | ConvertTo-Json -Depth 5 | Set-Content -Path $FirefoxManifestPath -Encoding UTF8
 
-# Create Windows Registry Key
-$RegPath = "HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.maxsdownloader.host"
-try {
-    if (-not (Test-Path $RegPath)) {
-        New-Item -Path $RegPath -Force | Out-Null
+# Create Windows Registry Keys for Chrome, Edge, Chromium, and Firefox
+$RegMappings = @(
+    @{ Path = "HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.maxsdownloader.host"; Manifest = $ChromeManifestPath; Browser = "Google Chrome" },
+    @{ Path = "HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.maxsdownloader.host"; Manifest = $ChromeManifestPath; Browser = "Microsoft Edge" },
+    @{ Path = "HKCU:\Software\Chromium\NativeMessagingHosts\com.maxsdownloader.host"; Manifest = $ChromeManifestPath; Browser = "Chromium / Opera / Brave" },
+    @{ Path = "HKCU:\Software\Mozilla\NativeMessagingHosts\com.maxsdownloader.host"; Manifest = $FirefoxManifestPath; Browser = "Mozilla Firefox" }
+)
+
+foreach ($entry in $RegMappings) {
+    try {
+        if (-not (Test-Path $entry.Path)) {
+            New-Item -Path $entry.Path -Force | Out-Null
+        }
+        Set-ItemProperty -Path $entry.Path -Name "(default)" -Value $entry.Manifest
+        Write-Host "[v] Successfully registered for $($entry.Browser):" -ForegroundColor Green
+        Write-Host "    $($entry.Path) -> $($entry.Manifest)" -ForegroundColor Gray
+    } catch {
+        Write-Host "[x] Registry write error for $($entry.Browser): $_" -ForegroundColor Red
     }
-    Set-ItemProperty -Path $RegPath -Name "(default)" -Value $ManifestPath
-    Write-Host "[v] Successfully registered host in Windows Registry:" -ForegroundColor Green
-    Write-Host "    $RegPath -> $ManifestPath" -ForegroundColor Gray
-} catch {
-    Write-Host "[x] Registry write error: $_" -ForegroundColor Red
 }
 
 Write-Host ""

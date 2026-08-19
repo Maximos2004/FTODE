@@ -289,12 +289,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Auto-save on dropdown/input changes for seamless UX
-  videoFormatSelect.addEventListener('change', () => saveSettings(true));
-  videoQualitySelect.addEventListener('change', () => saveSettings(true));
-  audioFormatSelect.addEventListener('change', () => saveSettings(true));
-  audioQualitySelect.addEventListener('change', () => saveSettings(true));
-  enableDebugToggle.addEventListener('change', () => saveSettings(true));
+  // Auto-save on dropdown/input changes for seamless UX (silent background save)
+  videoFormatSelect.addEventListener('change', () => saveSettings(false));
+  videoQualitySelect.addEventListener('change', () => saveSettings(false));
+  audioFormatSelect.addEventListener('change', () => saveSettings(false));
+  audioQualitySelect.addEventListener('change', () => saveSettings(false));
+  if (existingFileActionSelect) {
+    existingFileActionSelect.addEventListener('change', () => saveSettings(false));
+  }
+  downloadFolderInput.addEventListener('change', () => saveSettings(false));
+  enableDebugToggle.addEventListener('change', () => saveSettings(false));
 
   // Initialize
   await loadSettings();

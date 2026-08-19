@@ -42,6 +42,15 @@ bootstrap_lock = threading.Lock()
 def log_debug(msg):
     try:
         log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'debug_host.log')
+        # Cap log size to 5MB to prevent unbounded disk growth
+        if os.path.isfile(log_file) and os.path.getsize(log_file) > 5 * 1024 * 1024:
+            old_log = log_file + '.old'
+            try:
+                if os.path.isfile(old_log):
+                    os.remove(old_log)
+                os.rename(log_file, old_log)
+            except Exception:
+                pass
         with open(log_file, 'a', encoding='utf-8') as f:
             f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
     except Exception:
@@ -92,32 +101,32 @@ def read_message():
         return None
 
 
-def read_unbuffered_lines(process):
+def read_unbuffered_lines(proc):
     """
-    Yields decoded, non-empty lines from process.stdout in real time.
-    Handles both \r (carriage return progress) and \n (newlines).
+    Generator reading unbuffered output chunks from subprocess,
+    splitting on both carriage returns (\\r) and newlines (\\n).
     """
-    buffer = []
+    buffer = ''
     while True:
         try:
-            char = process.stdout.read(1)
+            chunk = proc.stdout.read(128)
         except Exception:
             break
-        if not char:
-            if process.poll() is not None:
-                break
-            continue
-        if char == '\r' or char == '\n':
-            line = ''.join(buffer).strip()
-            buffer = []
+        if not chunk:
+            if buffer.strip():
+                yield buffer.strip()
+            break
+        buffer += chunk
+        while '\n' in buffer or '\r' in buffer:
+            n_idx = buffer.find('\n')
+            r_idx = buffer.find('\r')
+            if n_idx != -1 and (r_idx == -1 or n_idx < r_idx):
+                line, buffer = buffer[:n_idx], buffer[n_idx + 1:]
+            else:
+                line, buffer = buffer[:r_idx], buffer[r_idx + 1:]
+            line = line.strip()
             if line:
                 yield line
-        else:
-            buffer.append(char)
-    if buffer:
-        line = ''.join(buffer).strip()
-        if line:
-            yield line
 
 
 def find_executable(name, custom_path=None):
@@ -400,50 +409,27 @@ def handle_check_updates(payload):
         })
 
 
-def handle_cancel():
-    """
-    Terminate currently executing download process.
-    """
-    global active_process
-    with active_lock:
-        if active_process and active_process.poll() is None:
-            try:
-                active_process.terminate()
-            except Exception:
-                try:
-                    active_process.kill()
-                except Exception:
-                    pass
-            active_process = None
-            send_message({'status': 'log', 'line': '[INFO] Subprocess cancelled by user request.'})
+RICH_STREAMING_DOMAINS = (
+    'youtube.com', 'youtu.be', 'vimeo.com', 'soundcloud.com', 'twitch.tv',
+    'tiktok.com', 'twitter.com', 'x.com', 'reddit.com', 'dailymotion.com',
+    'bilibili.com', 'instagram.com', 'facebook.com', 'fb.watch',
+    'bandcamp.com', 'rumble.com', 'kick.com', 'odysee.com', 'mixcloud.com',
+    'streamable.com', 'bitchute.com', 'threads.net'
+)
 
 
-def read_unbuffered_lines(proc):
+def is_rich_streaming_domain(url):
     """
-    Generator reading unbuffered output chunks from subprocess,
-    splitting on both carriage returns (\\r) and newlines (\\n).
+    Check if URL is on a known streaming platform where yt-dlp has specialized extractors.
     """
-    buffer = ''
-    while True:
-        try:
-            chunk = proc.stdout.read(128)
-        except Exception:
-            break
-        if not chunk:
-            if buffer.strip():
-                yield buffer.strip()
-            break
-        buffer += chunk
-        while '\n' in buffer or '\r' in buffer:
-            n_idx = buffer.find('\n')
-            r_idx = buffer.find('\r')
-            if n_idx != -1 and (r_idx == -1 or n_idx < r_idx):
-                line, buffer = buffer[:n_idx], buffer[n_idx + 1:]
-            else:
-                line, buffer = buffer[:r_idx], buffer[r_idx + 1:]
-            line = line.strip()
-            if line:
-                yield line
+    if not url:
+        return False
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(url).netloc.lower()
+        return any(host == d or host.endswith('.' + d) for d in RICH_STREAMING_DOMAINS)
+    except Exception:
+        return False
 
 
 def is_homepage_or_feed(url):
@@ -530,11 +516,19 @@ def handle_download(payload):
 
     log_debug(f"DOWNLOAD PAYLOAD: {json.dumps(payload)}")
 
-    # Choose best extraction URL: Always prefer pageUrl if it's a valid web page URL rather than a sniffed low-res direct chunk
+    # Smart extraction URL selection:
+    # 1. If pageUrl is on a known rich streaming platform (YouTube, Vimeo, SoundCloud, etc.),
+    #    prefer pageUrl so yt-dlp uses its full extractor to get best quality formats & metadata.
+    # 2. Otherwise, if raw_url is a direct media stream / manifest (from DOM or sniffer), prefer raw_url.
+    # 3. Fallback smoothly between page_url and raw_url.
     page_url = payload.get('pageUrl')
     raw_url = payload.get('url')
 
-    if page_url and page_url.startswith('http') and not is_homepage_or_feed(page_url):
+    if page_url and is_rich_streaming_domain(page_url) and not is_homepage_or_feed(page_url):
+        url = page_url
+    elif raw_url and raw_url.startswith('http'):
+        url = raw_url
+    elif page_url and page_url.startswith('http') and not is_homepage_or_feed(page_url):
         url = page_url
     else:
         url = raw_url or page_url
@@ -1093,10 +1087,12 @@ def install_registry(extension_id=None):
         extension_id = 'iabbelaamkcbkklcipbbkgegfenjhklc'
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    manifest_path = os.path.join(script_dir, 'com.maxsdownloader.host.json')
+    chrome_manifest_path = os.path.join(script_dir, 'com.maxsdownloader.host.json')
+    firefox_manifest_path = os.path.join(script_dir, 'com.maxsdownloader.host-firefox.json')
     bat_path = os.path.join(script_dir, 'run_host.bat')
 
-    manifest_data = {
+    # 1. Chrome / Chromium Manifest
+    chrome_manifest_data = {
         "name": "com.maxsdownloader.host",
         "description": "Max's Downloader Native Messaging Host",
         "path": bat_path,
@@ -1105,22 +1101,43 @@ def install_registry(extension_id=None):
             f"chrome-extension://{extension_id}/"
         ]
     }
+    with open(chrome_manifest_path, 'w', encoding='utf-8') as f:
+        json.dump(chrome_manifest_data, f, indent=2)
 
-    with open(manifest_path, 'w', encoding='utf-8') as f:
-        json.dump(manifest_data, f, indent=2)
+    # 2. Mozilla Firefox Manifest
+    firefox_manifest_data = {
+        "name": "com.maxsdownloader.host",
+        "description": "Max's Downloader Native Messaging Host",
+        "path": bat_path,
+        "type": "stdio",
+        "allowed_extensions": [
+            "maxs-downloader@maxakt.local"
+        ]
+    }
+    with open(firefox_manifest_path, 'w', encoding='utf-8') as f:
+        json.dump(firefox_manifest_data, f, indent=2)
 
-    # Register in Windows Current User Registry for Chrome
-    reg_key_path = r"Software\Google\Chrome\NativeMessagingHosts\com.maxsdownloader.host"
-    try:
-        key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, reg_key_path)
-        winreg.SetValue(key, "", winreg.REG_SZ, manifest_path)
-        winreg.CloseKey(key)
-        print(f"[v] Successfully registered com.maxsdownloader.host in Windows Registry!")
-        print(f"    Registry Key: HKCU\\{reg_key_path}")
-        print(f"    Manifest: {manifest_path}")
-        print(f"    Allowed Origin: chrome-extension://{extension_id}/")
-    except Exception as e:
-        print(f"[x] Registry installation failed: {e}")
+    # Register in Windows Current User Registry across all supported browsers
+    reg_keys = [
+        (r"Software\Google\Chrome\NativeMessagingHosts\com.maxsdownloader.host", "Google Chrome", chrome_manifest_path),
+        (r"Software\Microsoft\Edge\NativeMessagingHosts\com.maxsdownloader.host", "Microsoft Edge", chrome_manifest_path),
+        (r"Software\Chromium\NativeMessagingHosts\com.maxsdownloader.host", "Chromium / Opera / Brave", chrome_manifest_path),
+        (r"Software\Mozilla\NativeMessagingHosts\com.maxsdownloader.host", "Mozilla Firefox", firefox_manifest_path)
+    ]
+    for reg_key_path, browser_name, m_path in reg_keys:
+        try:
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, reg_key_path)
+            winreg.SetValue(key, "", winreg.REG_SZ, m_path)
+            winreg.CloseKey(key)
+            print(f"[v] Successfully registered for {browser_name} in Windows Registry!")
+            print(f"    Registry Key: HKCU\\{reg_key_path}")
+        except Exception as e:
+            print(f"[x] Registry installation failed for {browser_name}: {e}")
+
+    print(f"    Chrome Manifest: {chrome_manifest_path}")
+    print(f"    Firefox Manifest: {firefox_manifest_path}")
+    print(f"    Allowed Origin: chrome-extension://{extension_id}/")
+    print(f"    Gecko Extension ID: maxs-downloader@maxakt.local")
 
 
 def main():

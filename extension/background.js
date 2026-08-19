@@ -732,6 +732,7 @@ async function handleStartDownload(msg) {
       title: msg.title || (tabId && tabMediaStore.has(tabId) ? tabMediaStore.get(tabId).pageTitle : 'Media Download'),
       mediaType: finalMediaType,
       format: targetFormat,
+      downloadFolder: settings.downloadFolder || 'MaxsDownloads',
       isPlaylist: Boolean(isPlaylist),
       status: 'downloading',
       percent: 0,
@@ -841,7 +842,8 @@ function handleNativeHostMessage(msg) {
     currentJob.eta = '00:00';
     currentJob.resultFile = msg.file || null;
     currentJob.line = 'Download completed successfully!';
-    appendJobLog(`[SUCCESS] Download completed! Saved to: ${msg.file || settingsFolder()}`);
+    const folderPath = currentJob.downloadFolder ? `Downloads/${currentJob.downloadFolder}` : 'Downloads/MaxsDownloads';
+    appendJobLog(`[SUCCESS] Download completed! Saved to: ${msg.file || folderPath}`);
     if (nativePort) {
       try { nativePort.disconnect(); } catch {}
       nativePort = null;
@@ -871,10 +873,6 @@ function appendJobLog(line) {
   if (currentJob.logs.length > 250) {
     currentJob.logs.shift();
   }
-}
-
-function settingsFolder() {
-  return 'Downloads/MaxsDownloads';
 }
 
 /**
