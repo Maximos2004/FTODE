@@ -1,15 +1,15 @@
 /**
- * Max's Downloader - Background Service Worker
- * Coordinates Dual-Pass media detection, tab state, Chrome badges,
+ * Finally that online downloader extension (FTODE) - Background Service Worker
+ * Coordinates Dual-Pass media detection, tab state, browser badges,
  * and Native Messaging communication with the Python yt-dlp backend.
  */
 
-const NATIVE_HOST_NAME = 'com.maxsdownloader.host';
+const NATIVE_HOST_NAME = 'com.ftode.host';
 
 const DEFAULT_SETTINGS = {
   videoFormat: 'MP4',
   audioFormat: 'MP3',
-  downloadFolder: 'MaxsDownloads',
+  downloadFolder: 'FTODE',
   enableDebug: true,
   videoQuality: 'best',
   audioQuality: 'best',
@@ -67,7 +67,7 @@ chrome.runtime.onInstalled.addListener(async () => {
       await chrome.storage.sync.set(toSet);
     }
   } catch (err) {
-    console.error('[MaxsDownloader] Storage init error:', err);
+    console.error('[FTODE] Storage init error:', err);
   }
 });
 
@@ -689,7 +689,7 @@ async function getNetscapeCookiesForUrl(targetUrl) {
     }
     return text;
   } catch (err) {
-    console.warn('[MaxsDownloader] Cookie extraction warning:', err);
+    console.warn('[FTODE] Cookie extraction warning:', err);
     return null;
   }
 }
@@ -732,7 +732,7 @@ async function handleStartDownload(msg) {
       title: msg.title || (tabId && tabMediaStore.has(tabId) ? tabMediaStore.get(tabId).pageTitle : 'Media Download'),
       mediaType: finalMediaType,
       format: targetFormat,
-      downloadFolder: settings.downloadFolder || 'MaxsDownloads',
+      downloadFolder: settings.downloadFolder || 'FTODE',
       isPlaylist: Boolean(isPlaylist),
       status: 'downloading',
       percent: 0,
@@ -767,7 +767,7 @@ async function handleStartDownload(msg) {
 
     nativePort.onDisconnect.addListener(() => {
       const err = chrome.runtime.lastError ? chrome.runtime.lastError.message : 'Native host disconnected';
-      console.warn('[MaxsDownloader] Native port disconnected:', err);
+      console.warn('[FTODE] Native port disconnected:', err);
 
       if (currentJob.status === 'downloading' || currentJob.status === 'remuxing') {
         currentJob.status = 'error';
@@ -791,7 +791,7 @@ async function handleStartDownload(msg) {
       mediaType: finalMediaType,
       format: currentJob.format,
       isPlaylist: isPlaylist,
-      downloadFolder: settings.downloadFolder || 'MaxsDownloads',
+      downloadFolder: settings.downloadFolder || 'FTODE',
       videoQuality: settings.videoQuality || 'best',
       audioQuality: settings.audioQuality || 'best',
       existingFileAction: settings.existingFileAction || 'copy',
@@ -842,7 +842,7 @@ function handleNativeHostMessage(msg) {
     currentJob.eta = '00:00';
     currentJob.resultFile = msg.file || null;
     currentJob.line = 'Download completed successfully!';
-    const folderPath = currentJob.downloadFolder ? `Downloads/${currentJob.downloadFolder}` : 'Downloads/MaxsDownloads';
+    const folderPath = currentJob.downloadFolder ? `Downloads/${currentJob.downloadFolder}` : 'Downloads/FTODE';
     appendJobLog(`[SUCCESS] Download completed! Saved to: ${msg.file || folderPath}`);
     if (nativePort) {
       try { nativePort.disconnect(); } catch {}

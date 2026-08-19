@@ -1,4 +1,4 @@
-# Max's Downloader
+# Finally that online downloader extension (FTODE)
 
 > A minimalist, high-performance media stream sniffer and video/audio downloader for Google Chrome, Opera, Edge, Brave, and Mozilla Firefox powered by Python Native Messaging and `yt-dlp`.
 
@@ -6,7 +6,7 @@
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/F6V82112T7)
 ## ⚡ Overview
 
-**Max's Downloader** is a modern browser extension paired with a Python Native Messaging backend. It detects media streams in real-time across the web (including direct HTML5 media and adaptive HLS / DASH / YouTube / Vimeo / SoundCloud streams) and provides a sleek two-button download interface for the highest quality video and audio.
+**Finally that online downloader extension (FTODE)** is a modern browser extension paired with a Python Native Messaging backend. It detects media streams in real-time across the web (including direct HTML5 media and adaptive HLS / DASH / YouTube / Vimeo / SoundCloud streams) and provides a sleek two-button download interface for the highest quality video and audio.
 
 ![Theme](https://img.shields.io/badge/Theme-Obsidian%20Dark-6366f1)
 ![Browsers](https://img.shields.io/badge/Browsers-Chrome%20%7C%20Opera%20%7C%20Edge%20%7C%20Firefox-10b981)
@@ -38,8 +38,8 @@ Maxs-Downloader/
 ├── native_host/
 │   ├── host.py                          # Python Native Messaging protocol handler
 │   ├── run_host.bat                     # Windows stdio launcher wrapper
-│   ├── com.maxsdownloader.host.json     # Chromium native host manifest
-│   ├── com.maxsdownloader.host-firefox.json # Firefox native host manifest
+│   ├── com.ftode.host.json              # Chromium native host manifest
+│   ├── com.ftode.host-firefox.json      # Firefox native host manifest
 │   ├── install_host.bat                 # 1-Click Multi-Browser Windows installer
 │   ├── install_host.ps1                 # PowerShell installer script
 │   └── bin/                             # Prepackaged / auto-downloaded binaries
@@ -113,9 +113,9 @@ Double-click **`setup.bat`** in the root project folder (or run `install_host.ba
 
 ### Step 3: Test & Download!
 1. Open any media page (e.g., YouTube, SoundCloud, Vimeo, TikTok, direct MP4/MP3).
-2. Click the **Max's Downloader** icon in your browser toolbar.
+2. Click the **FTODE** icon in your browser toolbar.
 3. Click **Download MP4** or **Download MP3**.
-4. Files are saved directly to `~/Downloads/MaxsDownloads/`!
+4. Files are saved directly to `~/Downloads/FTODE/`!
 
 ---
 
@@ -126,7 +126,7 @@ Access the Options page by clicking the **Gear** icon in the popup or right-clic
 * **Video Resolutions:** `Best Available (up to 8K)`, `8K (4320p)`, `4K (2160p)`, `2K (1440p)`, `1080p (Full HD)`, `720p (HD)`, `480p`, `360p`, `240p`.
 * **Audio Formats:** `MP3`, `M4A (AAC)`, `FLAC (Lossless)`, `WAV (PCM)`, `OPUS`, `OGG (Vorbis)`, `AAC`, `ALAC (Apple Lossless)`, `WMA`, `AIFF`, `AC3 (Dolby)`, `MP2`.
 * **Audio Bitrates:** `Best Available`, `320 kbps (Extreme)`, `256 kbps`, `192 kbps`, `160 kbps`, `128 kbps`, `96 kbps (Voice/Podcast)`, `64 kbps (Data Saver)`.
-* **Download Directory:** Custom relative folder inside Downloads (default: `MaxsDownloads`).
+* **Download Directory:** Custom relative folder inside Downloads (default: `FTODE`).
 * **Live Debug Console:** Toggle inline terminal stream.
 * **Auto-Installer / Updater:** 1-Click button to check for updates or download tools.
 

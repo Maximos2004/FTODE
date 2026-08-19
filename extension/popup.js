@@ -1,5 +1,5 @@
 /**
- * Max's Downloader - Popup Script
+ * Finally that online downloader extension (FTODE) - Popup Script
  * Coordinates UI updates, format bindings, real-time download streaming,
  * and user interactions.
  */
@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let currentSettings = {
     videoFormat: 'MP4',
     audioFormat: 'MP3',
-    downloadFolder: 'MaxsDownloads',
+    downloadFolder: 'FTODE',
     enableDebug: true
   };
   let isTerminalVisible = false;
@@ -333,7 +333,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     badgeVideoFormat.textContent = vFmt;
     badgeAudioFormat.textContent = aFmt;
 
-    footerFolder.textContent = `Folder: ${currentSettings.downloadFolder || 'MaxsDownloads'}`;
+    footerFolder.textContent = `Folder: ${currentSettings.downloadFolder || 'FTODE'}`;
 
     // 2. Detection Status
     const isStream = isHome ? false : (tabMediaState ? tabMediaState.isStreamDomain : false);

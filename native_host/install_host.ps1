@@ -1,22 +1,23 @@
-# Max's Downloader - PowerShell Native Messaging Host Installer
+# Finally that online downloader extension (FTODE) - PowerShell Host Installer
 param (
     [string]$ExtensionId = "iabbelaamkcbkklcipbbkgegfenjhklc"
 )
 
 Write-Host "===================================================" -ForegroundColor Cyan
-Write-Host "    Max's Downloader - 1-Click Host Setup" -ForegroundColor Cyan
+Write-Host "   FTODE - 1-Click Host Setup" -ForegroundColor Cyan
+Write-Host "   Finally that online downloader extension" -ForegroundColor Cyan
 Write-Host "===================================================" -ForegroundColor Cyan
 Write-Host ""
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ChromeManifestPath = Join-Path $ScriptDir "com.maxsdownloader.host.json"
-$FirefoxManifestPath = Join-Path $ScriptDir "com.maxsdownloader.host-firefox.json"
+$ChromeManifestPath = Join-Path $ScriptDir "com.ftode.host.json"
+$FirefoxManifestPath = Join-Path $ScriptDir "com.ftode.host-firefox.json"
 $BatPath = Join-Path $ScriptDir "run_host.bat"
 
 # 1. Update Chrome/Chromium manifest JSON
 $chromeManifestContent = @{
-    name = "com.maxsdownloader.host"
-    description = "Max's Downloader Native Messaging Host"
+    name = "com.ftode.host"
+    description = "Finally that online downloader extension (FTODE) Native Messaging Host"
     path = $BatPath
     type = "stdio"
     allowed_origins = @(
@@ -27,22 +28,22 @@ $chromeManifestContent | ConvertTo-Json -Depth 5 | Set-Content -Path $ChromeMani
 
 # 2. Update Firefox manifest JSON
 $firefoxManifestContent = @{
-    name = "com.maxsdownloader.host"
-    description = "Max's Downloader Native Messaging Host"
+    name = "com.ftode.host"
+    description = "Finally that online downloader extension (FTODE) Native Messaging Host"
     path = $BatPath
     type = "stdio"
     allowed_extensions = @(
-        "maxs-downloader@maxakt.local"
+        "ftode@maxakt.local"
     )
 }
 $firefoxManifestContent | ConvertTo-Json -Depth 5 | Set-Content -Path $FirefoxManifestPath -Encoding UTF8
 
 # Create Windows Registry Keys for Chrome, Edge, Chromium, and Firefox
 $RegMappings = @(
-    @{ Path = "HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.maxsdownloader.host"; Manifest = $ChromeManifestPath; Browser = "Google Chrome" },
-    @{ Path = "HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.maxsdownloader.host"; Manifest = $ChromeManifestPath; Browser = "Microsoft Edge" },
-    @{ Path = "HKCU:\Software\Chromium\NativeMessagingHosts\com.maxsdownloader.host"; Manifest = $ChromeManifestPath; Browser = "Chromium / Opera / Brave" },
-    @{ Path = "HKCU:\Software\Mozilla\NativeMessagingHosts\com.maxsdownloader.host"; Manifest = $FirefoxManifestPath; Browser = "Mozilla Firefox" }
+    @{ Path = "HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.ftode.host"; Manifest = $ChromeManifestPath; Browser = "Google Chrome" },
+    @{ Path = "HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.ftode.host"; Manifest = $ChromeManifestPath; Browser = "Microsoft Edge" },
+    @{ Path = "HKCU:\Software\Chromium\NativeMessagingHosts\com.ftode.host"; Manifest = $ChromeManifestPath; Browser = "Chromium / Opera / Brave" },
+    @{ Path = "HKCU:\Software\Mozilla\NativeMessagingHosts\com.ftode.host"; Manifest = $FirefoxManifestPath; Browser = "Mozilla Firefox" }
 )
 
 foreach ($entry in $RegMappings) {

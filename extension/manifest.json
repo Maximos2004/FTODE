@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "Max's Downloader",
+  "name": "Finally that online downloader extension (FTODE)",
+  "short_name": "FTODE",
   "version": "1.0.0",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzo5tVCGtIFJkLvd95zP/WUIkCMn4AhwPlcZVsb8+dUOJ/fmJchSFEA6lPdYh6eM0xqKSFlLW+Bx2cSDqqf0gp2cp611pSU9lp4NGsIzjD9ZbM3IQ/hXHNyuJE+2kQRBJQ4h7bg6+7VgDLNt9PbcHcpXye+GZMYr+/EL0A/QIHqMF0rufcVXTVygnHXYqGWWNhQA1UAHaixaGSXyU9pPqG0/x67pUQpqd2MB+800lSXkAZGI0p7WVD5KXvOeSwvzxcOPdnP9jTDPxzTdb0C11ijZD22t80uBQuWzECjJti+M0hyDtWOsKrE/HIGj9pBDpQusSKHQ5CiSBMI4cia7zTQIDAQAB",
   "browser_specific_settings": {
     "gecko": {
-      "id": "maxs-downloader@maxakt.local",
+      "id": "ftode@maxakt.local",
       "strict_min_version": "109.0"
     }
   },
@@ -24,7 +25,7 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     },
-    "default_title": "Max's Downloader"
+    "default_title": "Finally that online downloader extension (FTODE)"
   },
   "background": {
     "service_worker": "background.js"

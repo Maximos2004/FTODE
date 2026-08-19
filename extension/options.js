@@ -1,5 +1,5 @@
 /**
- * Max's Downloader - Options Controller Script
+ * Finally that online downloader extension (FTODE) - Options Controller Script
  * Handles settings persistence, native host diagnostics, and setup assistance.
  */
 
@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     videoQuality: 'best',
     audioFormat: 'MP3',
     audioQuality: 'best',
-    downloadFolder: 'MaxsDownloads',
+    downloadFolder: 'FTODE',
     existingFileAction: 'copy',
     enableDebug: true
   };
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       videoQualitySelect.value = settings.videoQuality || 'best';
       audioFormatSelect.value = settings.audioFormat || 'MP3';
       audioQualitySelect.value = settings.audioQuality || 'best';
-      downloadFolderInput.value = settings.downloadFolder || 'MaxsDownloads';
+      downloadFolderInput.value = settings.downloadFolder || 'FTODE';
       if (existingFileActionSelect) {
         existingFileActionSelect.value = settings.existingFileAction || 'copy';
       }
@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       videoQuality: videoQualitySelect.value,
       audioFormat: audioFormatSelect.value,
       audioQuality: audioQualitySelect.value,
-      downloadFolder: downloadFolderInput.value.trim() || 'MaxsDownloads',
+      downloadFolder: downloadFolderInput.value.trim() || 'FTODE',
       existingFileAction: existingFileActionSelect ? existingFileActionSelect.value : 'copy',
       enableDebug: enableDebugToggle.checked
     };

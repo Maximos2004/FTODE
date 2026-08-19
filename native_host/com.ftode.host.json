@@ -1,6 +1,6 @@
 {
-  "name": "com.maxsdownloader.host",
-  "description": "Max's Downloader Native Messaging Host",
+  "name": "com.ftode.host",
+  "description": "Finally that online downloader extension (FTODE) Native Messaging Host",
   "path": "D:\\General Projects\\Max's Downloader\\Maxs-Downloader\\native_host\\run_host.bat",
   "type": "stdio",
   "allowed_origins": [

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Max's Downloader - Python Native Messaging Host Backend
-Interfaces Chrome extension with yt-dlp and FFmpeg using Native Messaging.
+Finally that online downloader extension (FTODE) - Python Native Messaging Host Backend
+Interfaces browser extension with yt-dlp and FFmpeg using Native Messaging.
 Includes automatic self-bootstrapping and fast update checks.
 """
 
@@ -80,7 +80,7 @@ def send_message(message_dict):
             sys.stdout.buffer.write(encoded_data)
             sys.stdout.buffer.flush()
         except Exception as e:
-            sys.stderr.write(f"[MaxsDownloader Host Error] send_message failed: {e}\n")
+            sys.stderr.write(f"[FTODE Host Error] send_message failed: {e}\n")
 
 
 def read_message():
@@ -97,7 +97,7 @@ def read_message():
             return None
         return json.loads(message_bytes.decode('utf-8'))
     except Exception as e:
-        sys.stderr.write(f"[MaxsDownloader Host Error] read_message failed: {e}\n")
+        sys.stderr.write(f"[FTODE Host Error] read_message failed: {e}\n")
         return None
 
 
@@ -554,7 +554,7 @@ def handle_download(payload):
         media_type = 'audio'
     else:
         media_type = 'video'
-    folder_name = payload.get('downloadFolder', 'MaxsDownloads').strip() or 'MaxsDownloads'
+    folder_name = payload.get('downloadFolder', 'FTODE').strip() or 'FTODE'
     video_quality = payload.get('videoQuality', 'best')
     audio_quality = payload.get('audioQuality', 'best')
     existing_file_action = str(payload.get('existingFileAction', 'copy')).lower()
@@ -670,7 +670,7 @@ def handle_download(payload):
     if cookies_text and isinstance(cookies_text, str) and len(cookies_text) > 30 and not is_yt:
         try:
             temp_dir = tempfile.gettempdir()
-            cookies_file = os.path.join(temp_dir, f"max_dl_cookies_{os.getpid()}_{int(time.time())}.txt")
+            cookies_file = os.path.join(temp_dir, f"ftode_cookies_{os.getpid()}_{int(time.time())}.txt")
             with open(cookies_file, 'w', encoding='utf-8') as f:
                 f.write(cookies_text)
             cmd_args.extend(['--cookies', cookies_file])
@@ -1087,14 +1087,14 @@ def install_registry(extension_id=None):
         extension_id = 'iabbelaamkcbkklcipbbkgegfenjhklc'
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    chrome_manifest_path = os.path.join(script_dir, 'com.maxsdownloader.host.json')
-    firefox_manifest_path = os.path.join(script_dir, 'com.maxsdownloader.host-firefox.json')
+    chrome_manifest_path = os.path.join(script_dir, 'com.ftode.host.json')
+    firefox_manifest_path = os.path.join(script_dir, 'com.ftode.host-firefox.json')
     bat_path = os.path.join(script_dir, 'run_host.bat')
 
     # 1. Chrome / Chromium Manifest
     chrome_manifest_data = {
-        "name": "com.maxsdownloader.host",
-        "description": "Max's Downloader Native Messaging Host",
+        "name": "com.ftode.host",
+        "description": "Finally that online downloader extension (FTODE) Native Messaging Host",
         "path": bat_path,
         "type": "stdio",
         "allowed_origins": [
@@ -1106,12 +1106,12 @@ def install_registry(extension_id=None):
 
     # 2. Mozilla Firefox Manifest
     firefox_manifest_data = {
-        "name": "com.maxsdownloader.host",
-        "description": "Max's Downloader Native Messaging Host",
+        "name": "com.ftode.host",
+        "description": "Finally that online downloader extension (FTODE) Native Messaging Host",
         "path": bat_path,
         "type": "stdio",
         "allowed_extensions": [
-            "maxs-downloader@maxakt.local"
+            "ftode@maxakt.local"
         ]
     }
     with open(firefox_manifest_path, 'w', encoding='utf-8') as f:
@@ -1119,10 +1119,10 @@ def install_registry(extension_id=None):
 
     # Register in Windows Current User Registry across all supported browsers
     reg_keys = [
-        (r"Software\Google\Chrome\NativeMessagingHosts\com.maxsdownloader.host", "Google Chrome", chrome_manifest_path),
-        (r"Software\Microsoft\Edge\NativeMessagingHosts\com.maxsdownloader.host", "Microsoft Edge", chrome_manifest_path),
-        (r"Software\Chromium\NativeMessagingHosts\com.maxsdownloader.host", "Chromium / Opera / Brave", chrome_manifest_path),
-        (r"Software\Mozilla\NativeMessagingHosts\com.maxsdownloader.host", "Mozilla Firefox", firefox_manifest_path)
+        (r"Software\Google\Chrome\NativeMessagingHosts\com.ftode.host", "Google Chrome", chrome_manifest_path),
+        (r"Software\Microsoft\Edge\NativeMessagingHosts\com.ftode.host", "Microsoft Edge", chrome_manifest_path),
+        (r"Software\Chromium\NativeMessagingHosts\com.ftode.host", "Chromium / Opera / Brave", chrome_manifest_path),
+        (r"Software\Mozilla\NativeMessagingHosts\com.ftode.host", "Mozilla Firefox", firefox_manifest_path)
     ]
     for reg_key_path, browser_name, m_path in reg_keys:
         try:
@@ -1137,7 +1137,7 @@ def install_registry(extension_id=None):
     print(f"    Chrome Manifest: {chrome_manifest_path}")
     print(f"    Firefox Manifest: {firefox_manifest_path}")
     print(f"    Allowed Origin: chrome-extension://{extension_id}/")
-    print(f"    Gecko Extension ID: maxs-downloader@maxakt.local")
+    print(f"    Gecko Extension ID: ftode@maxakt.local")
 
 
 def main():

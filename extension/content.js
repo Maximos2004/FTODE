@@ -1,5 +1,5 @@
 /**
- * Max's Downloader - Content Script (Pass 1: DOM Inspector)
+ * Finally that online downloader extension (FTODE) - Content Script (Pass 1: DOM Inspector)
  * Scans active web page for HTML5 media elements, player streams, and known streaming platforms.
  */
 
@@ -7,10 +7,10 @@
   'use strict';
 
   // Prevent duplicate injection in the same frame
-  if (window.__MAXS_DOWNLOADER_INJECTED__) {
+  if (window.__FTODE_INJECTED__) {
     return;
   }
-  window.__MAXS_DOWNLOADER_INJECTED__ = true;
+  window.__FTODE_INJECTED__ = true;
 
   const STREAMING_DOMAINS = [
     'youtube.com',
@@ -625,15 +625,15 @@
       attributeFilter: ['src', 'currentSrc', 'data-src', 'poster']
     });
   } catch (e) {
-    console.warn("[Max's Downloader] Observer init warning:", e);
+    console.warn("[FTODE] Observer init warning:", e);
   }
 
   // 3. Attach media playback and navigation event listeners
   function attachMediaListeners() {
     const mediaElements = document.querySelectorAll('video, audio');
     mediaElements.forEach(elem => {
-      if (!elem.__maxs_listener_attached__) {
-        elem.__maxs_listener_attached__ = true;
+      if (!elem.__ftode_listener_attached__) {
+        elem.__ftode_listener_attached__ = true;
         elem.addEventListener('play', scheduleDebouncedScan, { passive: true });
         elem.addEventListener('playing', scheduleDebouncedScan, { passive: true });
         elem.addEventListener('loadeddata', scheduleDebouncedScan, { passive: true });
