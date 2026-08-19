@@ -39,6 +39,23 @@ stdout_lock = threading.Lock()
 bootstrap_lock = threading.Lock()
 
 
+def sanitize_log_payload(obj):
+    """
+    Sanitize sensitive authentication cookies, passwords, and tokens before logging.
+    """
+    if isinstance(obj, dict):
+        clean = {}
+        for k, v in obj.items():
+            if k.lower() in ('cookiestext', 'cookies', 'cookie', 'password', 'token', 'auth'):
+                clean[k] = '[REDACTED_AUTHENTICATION_COOKIES]' if v else None
+            else:
+                clean[k] = sanitize_log_payload(v)
+        return clean
+    elif isinstance(obj, list):
+        return [sanitize_log_payload(item) for item in obj]
+    return obj
+
+
 def log_debug(msg):
     try:
         log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'debug_host.log')
@@ -55,6 +72,40 @@ def log_debug(msg):
             f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
     except Exception:
         pass
+
+
+def cleanup_all_processes():
+    """
+    Terminates any active child subprocess tree when host exits.
+    Prevents orphaned yt-dlp or ffmpeg processes when browser disconnects.
+    """
+    global active_process
+    with active_lock:
+        if active_process is not None:
+            pid = active_process.pid
+            try:
+                if sys.platform == 'win32':
+                    subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    active_process.kill()
+            except Exception:
+                try:
+                    active_process.kill()
+                except Exception:
+                    pass
+            active_process = None
+
+
+import atexit
+import signal
+
+atexit.register(cleanup_all_processes)
+try:
+    signal.signal(signal.SIGTERM, lambda *_: cleanup_all_processes())
+    signal.signal(signal.SIGINT, lambda *_: cleanup_all_processes())
+except Exception:
+    pass
+
 
 
 def get_bin_dir():
@@ -514,7 +565,7 @@ def handle_download(payload):
     """
     global active_process
 
-    log_debug(f"DOWNLOAD PAYLOAD: {json.dumps(payload)}")
+    log_debug(f"DOWNLOAD PAYLOAD: {json.dumps(sanitize_log_payload(payload))}")
 
     # Smart extraction URL selection:
     # 1. If pageUrl is on a known rich streaming platform (YouTube, Vimeo, SoundCloud, etc.),
@@ -549,12 +600,15 @@ def handle_download(payload):
 
     raw_type = str(payload.get('type') or payload.get('mediaType') or payload.get('targetType') or '').lower()
     target_format = str(payload.get('format', 'mp4')).lower()
-    audio_formats = ('mp3', 'm4a', 'wav', 'flac', 'ogg', 'aac', 'opus')
+    audio_formats = ('mp3', 'm4a', 'wav', 'flac', 'ogg', 'opus', 'aac', 'alac', 'vorbis')
     if raw_type == 'audio' or target_format in audio_formats:
         media_type = 'audio'
     else:
         media_type = 'video'
-    folder_name = payload.get('downloadFolder', 'FTODE').strip() or 'FTODE'
+    raw_folder = str(payload.get('downloadFolder', 'FTODE') or 'FTODE').strip()
+    safe_folder = sanitize_filename(raw_folder)
+    if not safe_folder or safe_folder in ('.', '..'):
+        safe_folder = 'FTODE'
     video_quality = payload.get('videoQuality', 'best')
     audio_quality = payload.get('audioQuality', 'best')
     existing_file_action = str(payload.get('existingFileAction', 'copy')).lower()
@@ -562,9 +616,12 @@ def handle_download(payload):
     custom_ffmpeg = payload.get('customFfmpegPath')
     title_hint = payload.get('title')
 
-    # Resolve output directory
+    # Resolve output directory strictly inside user's Downloads directory (Path Traversal Protection)
     user_home = os.path.expanduser('~')
-    output_dir = os.path.join(user_home, 'Downloads', folder_name)
+    base_downloads = os.path.abspath(os.path.join(user_home, 'Downloads'))
+    output_dir = os.path.abspath(os.path.join(base_downloads, safe_folder))
+    if not output_dir.startswith(base_downloads):
+        output_dir = os.path.join(base_downloads, 'FTODE')
     try:
         os.makedirs(output_dir, exist_ok=True)
     except Exception as e:
@@ -597,38 +654,156 @@ def handle_download(payload):
 
     # Check if URL or payload represents a playlist
     is_playlist_req = payload.get('isPlaylist')
-    url_lower = url.lower()
+    url_lower = (url or '').lower()
+    page_url_lower = (page_url or '').lower()
 
     if is_playlist_req is True:
         is_playlist = True
-    elif '/playlist' in url_lower or '/sets/' in url_lower or '/album/' in url_lower or ('list=' in url_lower and 'list=ll' not in url_lower and 'list=wl' not in url_lower and '/watch' not in url_lower and 'v=' not in url_lower):
+    elif '/playlist' in url_lower or '/playlist' in page_url_lower or '/sets/' in url_lower or '/album/' in url_lower or '/playlists/' in url_lower:
         is_playlist = True
-    elif is_playlist_req is False:
-        is_playlist = False
+    elif ('list=' in url_lower or 'list=' in page_url_lower) and 'list=ll' not in url_lower and 'list=wl' not in url_lower and '/watch' not in url_lower and 'v=' not in url_lower:
+        is_playlist = True
     else:
-        is_playlist = False
+        is_playlist = bool(is_playlist_req)
+
+    target_ext = '.' + target_format.lower().lstrip('.')
 
     # Output template & Duplicate Handling
     if is_playlist:
-        output_template = os.path.join(output_dir, '%(playlist_title,playlist,album|Playlist)s', '%(playlist_index,autonumber)02d - %(title).150s.%(ext)s')
         playlist_args = ['--yes-playlist']
-        send_message({'status': 'log', 'line': f"[INFO] Playlist mode active. Saving to ~/Downloads/{folder_name}/<Playlist_Name>/"})
+        playlist_title = None
+        if title_hint and title_hint not in ('Media Download', 'Media Stream', 'No media detected'):
+            playlist_title = sanitize_filename(title_hint)
+        else:
+            # Probe yt-dlp quickly for the true playlist title
+            try:
+                probe_cmd = [
+                    ytdlp_bin,
+                    '--flat-playlist',
+                    '--dump-single-json',
+                    '--playlist-items', '1',
+                    '--no-warnings',
+                    '--compat-options', 'no-youtube-unavailable-videos',
+                    '--',
+                    url
+                ]
+                res = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=6, stdin=subprocess.DEVNULL)
+                if res.returncode == 0 and res.stdout.strip():
+                    info_data = json.loads(res.stdout)
+                    raw_title = info_data.get('title') or info_data.get('playlist_title')
+                    if raw_title:
+                        playlist_title = sanitize_filename(raw_title)
+            except Exception as e:
+                log_debug(f"Playlist title probe: {e}")
+
+        safe_pl_title = playlist_title or 'Playlist'
+
+        if existing_file_action == 'copy':
+            existing_dirs = [d for d in os.listdir(output_dir) if os.path.isdir(os.path.join(output_dir, d))] if os.path.isdir(output_dir) else []
+
+            candidate_idx = 0
+            while True:
+                target_folder_name = safe_pl_title if candidate_idx == 0 else f"{safe_pl_title} ({candidate_idx})"
+                matched_dir = next((d for d in existing_dirs if d.lower() == target_folder_name.lower()), None)
+
+                if not matched_dir:
+                    break
+
+                full_matched_path = os.path.join(output_dir, matched_dir)
+                dir_files = os.listdir(full_matched_path) if os.path.isdir(full_matched_path) else []
+                has_target_format = any(
+                    f.lower().endswith(target_ext) and not f.endswith('.part') and not f.endswith('.ytdl')
+                    for f in dir_files
+                )
+                if not has_target_format:
+                    # Target folder exists (e.g. contains .mp3), but has no files of target_ext (e.g. .mp4) -> use same folder
+                    break
+
+                candidate_idx += 1
+
+            if candidate_idx == 0:
+                output_template = os.path.join(output_dir, safe_pl_title, '%(playlist_index,autonumber)02d - %(title).150s.%(ext)s')
+                send_message({'status': 'log', 'line': f"[INFO] Playlist mode active. Saving to ~/Downloads/{safe_folder}/{safe_pl_title}/"})
+            else:
+                folder_dest_name = f"{safe_pl_title} ({candidate_idx})"
+                output_template = os.path.join(output_dir, folder_dest_name, '%(playlist_index,autonumber)02d - %(title).150s.%(ext)s')
+                send_message({'status': 'log', 'line': f"[INFO] Playlist '{safe_pl_title}' with {target_ext} already exists. Creating new playlist folder '{folder_dest_name}'."})
+        else:
+            output_template = os.path.join(output_dir, safe_pl_title, '%(playlist_index,autonumber)02d - %(title).150s.%(ext)s')
+            send_message({'status': 'log', 'line': f"[INFO] Playlist mode active. Saving to ~/Downloads/{safe_folder}/{safe_pl_title}/"})
     else:
         playlist_args = ['--no-playlist']
-        if existing_file_action == 'copy' and title_hint and title_hint not in ('Media Download', 'Media Stream', 'No media detected'):
-            safe_title = sanitize_filename(title_hint)
-            existing_files = os.listdir(output_dir) if os.path.isdir(output_dir) else []
-            base_matches = [f for f in existing_files if f.startswith(safe_title) and not f.endswith('.part') and not f.endswith('.ytdl')]
-            if base_matches:
-                copy_idx = 1
-                while any(f.startswith(f"{safe_title} ({copy_idx})") for f in existing_files):
-                    copy_idx += 1
-                output_template = os.path.join(output_dir, f"%(title).150s ({copy_idx}).%(ext)s")
-                send_message({'status': 'log', 'line': f"[INFO] File '{safe_title}' already exists. Creating copy '({copy_idx})'."})
+        if existing_file_action == 'copy':
+            target_title = None
+            if title_hint and title_hint not in ('Media Download', 'Media Stream', 'No media detected'):
+                target_title = sanitize_filename(title_hint)
+            else:
+                # Probe title from yt-dlp quickly
+                try:
+                    probe_cmd = [
+                        ytdlp_bin,
+                        '--print', '%(title).150s',
+                        '--no-warnings',
+                        '--skip-download',
+                        '--compat-options', 'no-youtube-unavailable-videos',
+                        '--',
+                        url
+                    ]
+                    res = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=6, stdin=subprocess.DEVNULL)
+                    if res.returncode == 0 and res.stdout.strip():
+                        target_title = sanitize_filename(res.stdout.strip().split('\n')[0])
+                except Exception as e:
+                    log_debug(f"Title probe error: {e}")
+
+            if target_title:
+                safe_title = target_title
+                existing_files = os.listdir(output_dir) if os.path.isdir(output_dir) else []
+
+                def norm_str(s):
+                    return re.sub(r'[\W_]+', '', s).lower()
+
+                s_norm = norm_str(safe_title)
+                used_indices = set()
+                has_base_match = False
+
+                for f in existing_files:
+                    if f.endswith('.part') or f.endswith('.ytdl'):
+                        continue
+                    f_base = os.path.splitext(f)[0]
+
+                    # Extract existing copy index (1), (2), etc.
+                    m = re.search(r'\s*\((\d+)\)$', f_base.strip())
+                    if m:
+                        idx = int(m.group(1))
+                        f_clean = re.sub(r'\s*\(\d+\)$', '', f_base.strip())
+                    else:
+                        idx = None
+                        f_clean = f_base.strip()
+
+                    f_norm = norm_str(f_clean)
+
+                    # Compare normalized representations to ignore bracket variations, whitespace, and unicode symbols
+                    if f_norm == s_norm or f_norm.startswith(s_norm) or s_norm.startswith(f_norm) or (len(s_norm) > 4 and s_norm in f_norm) or (len(f_norm) > 4 and f_norm in s_norm):
+                        has_base_match = True
+                        if idx is not None:
+                            used_indices.add(idx)
+
+                if has_base_match:
+                    copy_idx = 1
+                    while copy_idx in used_indices:
+                        copy_idx += 1
+                    output_template = os.path.join(output_dir, f"%(title).150s ({copy_idx}).%(ext)s")
+                    send_message({'status': 'log', 'line': f"[INFO] File '{safe_title}' already exists in folder. Creating copy '({copy_idx})'."})
+                else:
+                    output_template = os.path.join(output_dir, '%(title).150s.%(ext)s')
             else:
                 output_template = os.path.join(output_dir, '%(title).150s.%(ext)s')
         else:
             output_template = os.path.join(output_dir, '%(title).150s.%(ext)s')
+
+
+
+
 
     # Overwrite parameters
     if existing_file_action == 'overwrite':
@@ -650,7 +825,6 @@ def handle_download(payload):
         '--compat-options', 'no-youtube-unavailable-videos',
         '--extractor-args', 'youtube:player_client=default,web_embedded,web,android,mweb,ios',
         '--geo-bypass',
-        '--no-check-certificates',
         '--extractor-retries', '10',
         '--sleep-interval', '1',
         '--retry-sleep', 'exp=1:10',
@@ -669,9 +843,8 @@ def handle_download(payload):
 
     if cookies_text and isinstance(cookies_text, str) and len(cookies_text) > 30 and not is_yt:
         try:
-            temp_dir = tempfile.gettempdir()
-            cookies_file = os.path.join(temp_dir, f"ftode_cookies_{os.getpid()}_{int(time.time())}.txt")
-            with open(cookies_file, 'w', encoding='utf-8') as f:
+            fd, cookies_file = tempfile.mkstemp(prefix=f"ftode_cookies_{os.getpid()}_", suffix=".txt")
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
                 f.write(cookies_text)
             cmd_args.extend(['--cookies', cookies_file])
             send_message({'status': 'log', 'line': '[INFO] Attached browser session authentication cookies.'})
@@ -706,19 +879,20 @@ def handle_download(payload):
                 '-f', format_spec,
                 '--recode-video', 'gif'
             ])
-        elif target_format in ('avi', 'wmv', 'flv', 'ts', '3gp', 'ogv'):
-            cmd_args.extend([
-                '-f', format_spec,
-                '--recode-video', target_format
-            ])
-        else:
+        elif target_format in ('avi', 'flv', 'mov', 'mp4', 'mkv', 'webm'):
             cmd_args.extend([
                 '-f', format_spec,
                 '--merge-output-format', target_format
             ])
+        else:
+            cmd_args.extend([
+                '-f', format_spec,
+                '--merge-output-format', 'mp4'
+            ])
+
 
     elif media_type == 'audio':
-        fmt = 'vorbis' if target_format == 'ogg' else target_format
+        fmt = 'vorbis' if target_format in ('ogg', 'vorbis') else target_format
         cmd_args.extend([
             '-f', 'bestaudio/best',
             '-x',
@@ -730,8 +904,8 @@ def handle_download(payload):
         else:
             cmd_args.extend(['--audio-quality', '0'])
 
-    # Target URL
-    cmd_args.append(url)
+    # Target URL (guarded with '--' to prevent CLI option injection)
+    cmd_args.extend(['--', url])
 
     log_debug(f"SPAWNING CMD: {' '.join(cmd_args)}")
 
@@ -739,6 +913,7 @@ def handle_download(payload):
         'status': 'log',
         'line': f"[INFO] Spawning yt-dlp: {cmd_args[0]} [target: {url}]"
     })
+
 
     # Regex patterns for fallback progress parsing
     progress_regex = re.compile(r'\[download\]\s+([\d\.]+)%\s+of\s+~?([\d\.]+\w+)\s+at\s+([\d\.]+\w+/s)\s+ETA\s+([\d:]+)')
@@ -1157,33 +1332,37 @@ def main():
 
     # Normal Native Messaging loop
     log_debug("HOST PROCESS STARTED (listening for messages)")
-    while True:
-        message = read_message()
-        if message is None:
-            log_debug("HOST STDIN CLOSED (exiting)")
-            break
+    try:
+        while True:
+            message = read_message()
+            if message is None:
+                log_debug("HOST STDIN CLOSED (exiting)")
+                break
 
-        log_debug(f"MESSAGE RECEIVED: {json.dumps(message)}")
-        action = message.get('action', '').upper()
+            log_debug(f"MESSAGE RECEIVED: {json.dumps(sanitize_log_payload(message))}")
+            action = message.get('action', '').upper()
 
-        if action == 'PING':
-            handle_ping(message)
-        elif action == 'CHECK_UPDATES' or action == 'UPDATE_BINARIES':
-            thread = threading.Thread(target=handle_check_updates, args=(message,), daemon=True)
-            thread.start()
-        elif action == 'BOOTSTRAP_BINARIES' or action == 'INSTALL_BINARIES':
-            thread = threading.Thread(target=handle_bootstrap, args=(message,), daemon=True)
-            thread.start()
-        elif action == 'DOWNLOAD':
-            thread = threading.Thread(target=handle_download, args=(message,), daemon=True)
-            thread.start()
-        elif action == 'CANCEL':
-            handle_cancel()
-        else:
-            send_message({
-                'status': 'error',
-                'message': f"Unknown action: {action}"
-            })
+            if action == 'PING':
+                handle_ping(message)
+            elif action == 'CHECK_UPDATES' or action == 'UPDATE_BINARIES':
+                thread = threading.Thread(target=handle_check_updates, args=(message,), daemon=True)
+                thread.start()
+            elif action == 'BOOTSTRAP_BINARIES' or action == 'INSTALL_BINARIES':
+                thread = threading.Thread(target=handle_bootstrap, args=(message,), daemon=True)
+                thread.start()
+            elif action == 'DOWNLOAD':
+                thread = threading.Thread(target=handle_download, args=(message,), daemon=True)
+                thread.start()
+            elif action == 'CANCEL':
+                handle_cancel()
+            else:
+                send_message({
+                    'status': 'error',
+                    'message': f"Unknown action: {action}"
+                })
+    finally:
+        cleanup_all_processes()
+
 
 
 if __name__ == '__main__':

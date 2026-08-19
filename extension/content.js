@@ -293,6 +293,14 @@
       return bcAlbumTitle.innerText.trim();
     }
 
+    // 6. Page document title fallback
+    if (document.title) {
+      const cleanDocTitle = cleanTitleString(document.title);
+      if (isValidPlaylistTitle(cleanDocTitle) && cleanDocTitle !== 'YouTube') {
+        return cleanDocTitle;
+      }
+    }
+
     return null;
   }
 

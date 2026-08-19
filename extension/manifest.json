@@ -45,7 +45,6 @@
   "permissions": [
     "activeTab",
     "storage",
-    "downloads",
     "nativeMessaging",
     "webRequest",
     "cookies",

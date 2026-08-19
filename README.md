@@ -122,9 +122,10 @@ Double-click **`setup.bat`** in the root project folder (or run `install_host.ba
 ## ⚙️ Configuration & Options
 
 Access the Options page by clicking the **Gear** icon in the popup or right-clicking the extension icon -> **Options**:
-* **Video Formats:** `MP4`, `WEBM`, `MKV`, `MOV`, `AVI`, `WMV`, `FLV`, `TS`, `3GP`, `OGV`, `GIF` (Animated GIF).
+* **Video Formats:** `MP4`, `WEBM`, `MKV`, `MOV`, `AVI`, `FLV`, `GIF` (Animated GIF).
 * **Video Resolutions:** `Best Available (up to 8K)`, `8K (4320p)`, `4K (2160p)`, `2K (1440p)`, `1080p (Full HD)`, `720p (HD)`, `480p`, `360p`, `240p`.
-* **Audio Formats:** `MP3`, `M4A (AAC)`, `FLAC (Lossless)`, `WAV (PCM)`, `OPUS`, `OGG (Vorbis)`, `AAC`, `ALAC (Apple Lossless)`, `WMA`, `AIFF`, `AC3 (Dolby)`, `MP2`.
+* **Audio Formats:** `MP3`, `M4A (AAC)`, `FLAC (Lossless)`, `WAV (PCM)`, `OPUS`, `OGG (Vorbis)`, `AAC`, `ALAC (Apple Lossless)`.
+
 * **Audio Bitrates:** `Best Available`, `320 kbps (Extreme)`, `256 kbps`, `192 kbps`, `160 kbps`, `128 kbps`, `96 kbps (Voice/Podcast)`, `64 kbps (Data Saver)`.
 * **Download Directory:** Custom relative folder inside Downloads (default: `FTODE`).
 * **Live Debug Console:** Toggle inline terminal stream.

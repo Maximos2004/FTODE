@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const hostAlert = document.getElementById('host-alert');
   const btnSetupHost = document.getElementById('btn-setup-host');
 
+  const actionGrid = document.getElementById('action-grid');
   const btnDownloadVideo = document.getElementById('btn-download-video');
   const labelVideo = document.getElementById('label-video');
   const badgeVideoFormat = document.getElementById('badge-video-format');
@@ -217,6 +218,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         tabMediaState = response.tabState;
         currentSettings = response.settings || currentSettings;
         currentJob = response.currentJob;
+
+        // If the popup was just opened and the previous download was already complete/errored,
+        // immediately dismiss it so the user can download right away without waiting!
+        if (currentJob && (currentJob.status === 'complete' || currentJob.status === 'error')) {
+          currentJob.status = 'idle';
+          chrome.runtime.sendMessage({ type: 'DISMISS_JOB' }).catch(() => {});
+        }
       }
 
       if (currentTab && currentTab.url && isHomePageOrFeed(currentTab.url)) {
@@ -485,11 +493,15 @@ document.addEventListener('DOMContentLoaded', async () => {
    * Render active download progress & logs
    */
   function renderJobState() {
-    if (!currentJob || currentJob.status === 'idle') {
+    const isJobActive = currentJob && currentJob.status && currentJob.status !== 'idle';
+
+    if (!isJobActive) {
       progressSection.classList.add('hidden');
+      if (actionGrid) actionGrid.classList.remove('hidden');
       return;
     }
 
+    if (actionGrid) actionGrid.classList.add('hidden');
     progressSection.classList.remove('hidden');
 
     const percent = Math.round(currentJob.percent || 0);
@@ -505,7 +517,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         errorDismissTimer = null;
       }
       const isPl = currentJob.isPlaylist;
-      progressStatus.textContent = isPl ? 'Downloading Playlist...' : `Downloading ${currentJob.mediaType.toUpperCase()}...`;
+      progressStatus.textContent = isPl ? 'Downloading Playlist...' : `Downloading ${(currentJob.mediaType || 'Media').toUpperCase()}...`;
       metricSpeed.textContent = currentJob.speed || 'Calculating...';
       metricEta.textContent = currentJob.eta || '--:--';
       btnCancelJob.classList.remove('hidden');
@@ -532,6 +544,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (currentJob && currentJob.status === 'complete') {
             progressSection.classList.add('hidden');
             currentJob.status = 'idle';
+            if (actionGrid) actionGrid.classList.remove('hidden');
+            chrome.runtime.sendMessage({ type: 'DISMISS_JOB' }).catch(() => {});
           }
           errorDismissTimer = null;
         }, 5000);
@@ -548,6 +562,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (currentJob && currentJob.status === 'error') {
             progressSection.classList.add('hidden');
             currentJob.status = 'idle';
+            if (actionGrid) actionGrid.classList.remove('hidden');
+            chrome.runtime.sendMessage({ type: 'DISMISS_JOB' }).catch(() => {});
           }
           errorDismissTimer = null;
         }, 5000);
@@ -623,6 +639,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       showTerminal(true);
     }
 
+    // Optimistically update UI to downloading state immediately
+    currentJob = {
+      id: 'job_' + Date.now(),
+      status: 'downloading',
+      mediaType: targetType,
+      format: format,
+      title: title,
+      percent: 0,
+      speed: 'Starting...',
+      eta: '--:--',
+      isPlaylist: isPlaylist,
+      logs: [
+        `[INFO] Starting ${isPlaylist ? 'playlist batch' : targetType} download: "${title}"`,
+        `[INFO] Target format: ${format.toUpperCase()}`
+      ]
+    };
+    renderJobState();
+
     try {
       const res = await chrome.runtime.sendMessage({
         type: 'START_DOWNLOAD',
@@ -639,10 +673,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (res && res.status === 'error') {
         alert(`Could not start download: ${res.message}`);
+        currentJob.status = 'error';
+        currentJob.error = res.message;
+        renderJobState();
       }
     } catch (err) {
       console.error('[Popup] Start download error:', err);
       alert(`Download trigger error: ${err.message}`);
+      currentJob.status = 'error';
+      currentJob.error = err.message;
+      renderJobState();
     }
   }
 
@@ -657,7 +697,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const v = tabMediaState.items.find(i => i.type === 'video' && !i.isBlob && !i.isManifest);
       if (v) targetUrl = v.url;
     }
-    startDownloadJob('video', targetUrl, tabMediaState ? tabMediaState.pageTitle : '');
+    let title = (tabMediaState && tabMediaState.playlistTitle) || (tabMediaState && tabMediaState.pageTitle && tabMediaState.pageTitle !== 'Media Stream' && tabMediaState.pageTitle !== 'No media detected' ? tabMediaState.pageTitle : '') || (currentTab ? currentTab.title : '');
+    if (title) {
+      title = title.replace(/ - YouTube$/i, '').replace(/ \| SoundCloud$/i, '').replace(/ - Vimeo$/i, '').trim();
+    }
+    startDownloadJob('video', targetUrl, title);
   });
 
   btnDownloadAudio.addEventListener('click', () => {
@@ -666,7 +710,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       const a = tabMediaState.items.find(i => i.type === 'audio' && !i.isBlob && !i.isManifest);
       if (a) targetUrl = a.url;
     }
-    startDownloadJob('audio', targetUrl, tabMediaState ? tabMediaState.pageTitle : '');
+    let title = (tabMediaState && tabMediaState.playlistTitle) || (tabMediaState && tabMediaState.pageTitle && tabMediaState.pageTitle !== 'Media Stream' && tabMediaState.pageTitle !== 'No media detected' ? tabMediaState.pageTitle : '') || (currentTab ? currentTab.title : '');
+    if (title) {
+      title = title.replace(/ - YouTube$/i, '').replace(/ \| SoundCloud$/i, '').replace(/ - Vimeo$/i, '').trim();
+    }
+    startDownloadJob('audio', targetUrl, title);
+
   });
 
   btnCancelJob.addEventListener('click', async () => {
@@ -726,6 +775,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderJobState();
     }
   });
+
+  // Dismiss completed / errored job immediately when popup closes (click outside)
+  const handlePopupDismiss = () => {
+    if (currentJob && (currentJob.status === 'complete' || currentJob.status === 'error')) {
+      chrome.runtime.sendMessage({ type: 'DISMISS_JOB' }).catch(() => {});
+    }
+  };
+  window.addEventListener('pagehide', handlePopupDismiss);
+  window.addEventListener('beforeunload', handlePopupDismiss);
 
   // Start initialization
   init();

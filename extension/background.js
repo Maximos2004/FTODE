@@ -559,6 +559,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
+    case 'DISMISS_JOB': {
+      if (currentJob && (currentJob.status === 'complete' || currentJob.status === 'error')) {
+        currentJob.status = 'idle';
+        currentJob.percent = 0;
+        currentJob.speed = '';
+        currentJob.eta = '';
+      }
+      sendResponse({ status: 'ok' });
+      return true;
+    }
+
     case 'CLEAR_LOGS': {
       currentJob.logs = [];
       sendResponse({ status: 'ok' });
@@ -609,6 +620,20 @@ async function handleGetPopupState(requestedTabId) {
     if (!tabState.pageUrl) tabState.pageUrl = activeTab.url || '';
     if (!tabState.pageTitle) tabState.pageTitle = activeTab.title || '';
     tabState.isStreamDomain = isStreamingUrl(tabState.pageUrl);
+  }
+
+  // If a finished download job is from another tab or page, reset it to idle immediately
+  if (currentJob && (currentJob.status === 'complete' || currentJob.status === 'error')) {
+    const currentUrl = activeTab ? activeTab.url : '';
+    const jobUrl = currentJob.pageUrl || currentJob.url || '';
+    const isDifferentPage = currentUrl && jobUrl && currentUrl !== jobUrl;
+    const isDifferentTab = activeTab && currentJob.tabId && activeTab.id !== currentJob.tabId;
+    if (isDifferentPage || isDifferentTab) {
+      currentJob.status = 'idle';
+      currentJob.percent = 0;
+      currentJob.speed = '';
+      currentJob.eta = '';
+    }
   }
 
   const settings = await chrome.storage.sync.get(DEFAULT_SETTINGS);
@@ -848,6 +873,15 @@ function handleNativeHostMessage(msg) {
       try { nativePort.disconnect(); } catch {}
       nativePort = null;
     }
+    setTimeout(() => {
+      if (currentJob && currentJob.status === 'complete') {
+        currentJob.status = 'idle';
+        currentJob.percent = 0;
+        currentJob.speed = '';
+        currentJob.eta = '';
+        broadcastToPopup({ type: 'JOB_UPDATED', job: currentJob });
+      }
+    }, 5000);
   } else if (msg.status === 'error') {
     currentJob.status = 'error';
     currentJob.speed = 'Failed';
@@ -858,6 +892,15 @@ function handleNativeHostMessage(msg) {
       try { nativePort.disconnect(); } catch {}
       nativePort = null;
     }
+    setTimeout(() => {
+      if (currentJob && currentJob.status === 'error') {
+        currentJob.status = 'idle';
+        currentJob.percent = 0;
+        currentJob.speed = '';
+        currentJob.eta = '';
+        broadcastToPopup({ type: 'JOB_UPDATED', job: currentJob });
+      }
+    }, 5000);
   }
 
   broadcastToPopup({
