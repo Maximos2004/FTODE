@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnToggleTerminal = document.getElementById('btn-toggle-terminal');
   const btnOptions = document.getElementById('btn-options');
 
+  const detectionSection = document.getElementById('detection-section');
+  const statusCard = document.getElementById('status-card');
+  const detectionIconWrapper = document.getElementById('detection-icon-wrapper');
   const statusBadge = document.getElementById('status-badge');
   const statusText = document.getElementById('status-text');
   const mediaTypeTag = document.getElementById('media-type-tag');
@@ -49,7 +52,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const hostPill = document.getElementById('host-pill');
   const hostPillText = document.getElementById('host-pill-text');
+  const footerPlaylistChip = document.getElementById('footer-playlist-chip');
   const footerFolder = document.getElementById('footer-folder');
+
+  // SVG Detection Icons
+  const ICONS = {
+    video: `<svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM10 14.5v-5l4 2.5-4 2.5z"/>
+    </svg>`,
+    audio: `<svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/>
+    </svg>`,
+    playlist: `<svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M4 10h12v2H4zm0-4h12v2H4zm0 8h8v2H4zm10 0v6l5-3z"/>
+    </svg>`,
+    idle: `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="8" x2="12" y2="12"></line>
+      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    </svg>`
+  };
 
   // Local state
   let currentTab = null;
@@ -219,9 +241,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentSettings = response.settings || currentSettings;
         currentJob = response.currentJob;
 
-        // If the popup was just opened and the previous download was already complete/errored,
+        // If the popup was just opened and the previous download was already complete/errored/cancelled,
         // immediately dismiss it so the user can download right away without waiting!
-        if (currentJob && (currentJob.status === 'complete' || currentJob.status === 'error')) {
+        if (currentJob && (currentJob.status === 'complete' || currentJob.status === 'error' || currentJob.status === 'cancelled')) {
           currentJob.status = 'idle';
           chrome.runtime.sendMessage({ type: 'DISMISS_JOB' }).catch(() => {});
         }
@@ -249,6 +271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               tabMediaState.isPlaylist = res.isPlaylist !== undefined ? res.isPlaylist : tabMediaState.isPlaylist;
               tabMediaState.isStreamDomain = res.isStreamDomain !== undefined ? res.isStreamDomain : tabMediaState.isStreamDomain;
               tabMediaState.hasMediaTags = res.hasMediaTags;
+              tabMediaState.thumbnail = res.thumbnail || tabMediaState.thumbnail;
               if (Array.isArray(res.items)) {
                 tabMediaState.items = res.items;
               }
@@ -277,20 +300,41 @@ document.addEventListener('DOMContentLoaded', async () => {
       const res = await chrome.runtime.sendMessage({ type: 'TEST_HOST_CONNECTION' });
       if (res && res.connected) {
         isHostConnected = true;
-        hostPill.className = 'host-pill online';
-        hostPillText.textContent = 'Host: Connected';
-        hostAlert.classList.add('hidden');
+        if (hostPill) hostPill.className = 'status-chip host-chip';
+        if (hostPillText) hostPillText.textContent = 'Host: Connected';
+        if (hostAlert) hostAlert.classList.add('hidden');
       } else {
         isHostConnected = false;
-        hostPill.className = 'host-pill offline';
-        hostPillText.textContent = 'Host: Disconnected';
-        hostAlert.classList.remove('hidden');
+        if (hostPill) hostPill.className = 'status-chip host-chip offline';
+        if (hostPillText) hostPillText.textContent = 'Host: Disconnected';
+        if (hostAlert) hostAlert.classList.remove('hidden');
       }
     } catch (e) {
       isHostConnected = false;
-      hostPill.className = 'host-pill offline';
-      hostPillText.textContent = 'Host: Disconnected';
-      hostAlert.classList.remove('hidden');
+      if (hostPill) hostPill.className = 'status-chip host-chip offline';
+      if (hostPillText) hostPillText.textContent = 'Host: Disconnected';
+      if (hostAlert) hostAlert.classList.remove('hidden');
+    }
+  }
+
+  const AUDIO_ONLY_DOMAINS = [
+    'soundcloud.com',
+    'bandcamp.com',
+    'mixcloud.com',
+    'audiomack.com',
+    'spotify.com',
+    'music.apple.com',
+    'deezer.com',
+    'tidal.com'
+  ];
+
+  function isAudioOnlyUrl(url) {
+    if (!url) return false;
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      return AUDIO_ONLY_DOMAINS.some(d => host === d || host.endsWith('.' + d));
+    } catch {
+      return false;
     }
   }
 
@@ -321,10 +365,70 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /**
-   * Render popup UI based on current tab state
+   * Extract best video or media thumbnail URL
+   */
+  function getMediaThumbnail(url, state) {
+    if (state && state.thumbnail) return state.thumbnail;
+    if (!url) return null;
+    try {
+      const u = new URL(url);
+      const host = u.hostname.toLowerCase();
+      if (host.includes('youtube.com')) {
+        if (u.searchParams.has('v')) {
+          return `https://i.ytimg.com/vi/${u.searchParams.get('v')}/mqdefault.jpg`;
+        }
+        const parts = u.pathname.split('/');
+        const shortsIdx = parts.indexOf('shorts');
+        if (shortsIdx !== -1 && parts[shortsIdx + 1]) {
+          return `https://i.ytimg.com/vi/${parts[shortsIdx + 1]}/mqdefault.jpg`;
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Render either the media thumbnail or the fallback SVG icon
+   */
+  function renderDetectionIcon(type, thumbUrl) {
+    if (thumbUrl) {
+      detectionIconWrapper.classList.add('has-thumb');
+      detectionIconWrapper.innerHTML = `<img src="${thumbUrl}" class="detection-thumb-img" alt="Thumbnail" />`;
+      const img = detectionIconWrapper.querySelector('img');
+      img.onerror = () => {
+        detectionIconWrapper.classList.remove('has-thumb');
+        detectionIconWrapper.innerHTML = ICONS[type] || ICONS.idle;
+      };
+    } else {
+      detectionIconWrapper.classList.remove('has-thumb');
+      detectionIconWrapper.innerHTML = ICONS[type] || ICONS.idle;
+    }
+  }
+
+  /**
+   * Helper to check if there is an active running download job
+   */
+  function isJobActive() {
+    return Boolean(currentJob && currentJob.status && currentJob.status !== 'idle');
+  }
+
+  /**
+   * Render detection and media status in the Popup UI
    */
   function renderUI() {
-    const isHome = (currentTab && currentTab.url && isHomePageOrFeed(currentTab.url)) || (tabMediaState && isHomePageOrFeed(tabMediaState.pageUrl));
+    if (isJobActive()) {
+      renderJobState();
+      return;
+    }
+
+    if (progressSection) progressSection.classList.add('hidden');
+    if (actionGrid) actionGrid.classList.remove('hidden');
+
+    const isHome = currentTab && isHomePageOrFeed(currentTab.url);
+    const activeUrl = (currentTab && currentTab.url) || (tabMediaState && tabMediaState.pageUrl) || '';
+    const isAudioDomain = !isHome && (isAudioOnlyUrl(activeUrl) || (tabMediaState && tabMediaState.isAudioOnly));
 
     // 1. Settings & Button Labels
     const vFmt = (currentSettings.videoFormat || 'MP4').toUpperCase();
@@ -332,22 +436,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isPlaylist = !isHome && ((tabMediaState && tabMediaState.isPlaylist) || (currentTab && isPlaylistPageUrl(currentTab.url)));
 
     if (isPlaylist) {
-      labelVideo.textContent = `Download Playlist (${vFmt})`;
+      labelVideo.textContent = isAudioDomain ? `Playlist (Audio Only)` : `Download Playlist (${vFmt})`;
       labelAudio.textContent = `Download Playlist (${aFmt})`;
+    } else if (isAudioDomain) {
+      labelVideo.textContent = `Audio Only (${aFmt})`;
+      labelAudio.textContent = `Download ${aFmt}`;
     } else {
       labelVideo.textContent = `Download ${vFmt}`;
       labelAudio.textContent = `Download ${aFmt}`;
     }
-    badgeVideoFormat.textContent = vFmt;
-    badgeAudioFormat.textContent = aFmt;
+    if (badgeVideoFormat) badgeVideoFormat.textContent = vFmt;
+    if (badgeAudioFormat) badgeAudioFormat.textContent = aFmt;
 
-    footerFolder.textContent = `Folder: ${currentSettings.downloadFolder || 'FTODE'}`;
+    if (isPlaylist && tabMediaState && tabMediaState.playlistTitle) {
+      footerFolder.textContent = `Current Playlist: ${tabMediaState.playlistTitle}`;
+    } else {
+      footerFolder.textContent = `Folder: ${currentSettings.downloadFolder || 'FTODE'}`;
+    }
 
     // 2. Detection Status
     const isStream = isHome ? false : (tabMediaState ? tabMediaState.isStreamDomain : false);
     const items = (!isHome && tabMediaState && tabMediaState.items) ? tabMediaState.items : [];
-    const hasVideo = !isHome && (isStream || items.some(i => i.type === 'video'));
-    const hasAudio = !isHome && (isStream || items.some(i => i.type === 'audio'));
+    const hasVideo = !isHome && !isAudioDomain && (isStream || items.some(i => i.type === 'video'));
+    const hasAudio = !isHome && (isAudioDomain || isStream || items.some(i => i.type === 'audio'));
     const hasAnyMedia = !isHome && (isPlaylist || hasVideo || hasAudio);
     const totalCount = isStream ? Math.max(1, items.length) : items.length;
 
@@ -363,7 +474,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (hasAnyMedia) {
       if (tabMediaState && tabMediaState.isPlaylist && tabMediaState.playlistTitle) {
-        displayTitle = tabMediaState.playlistTitle;
+        displayTitle = `(from playlist ${tabMediaState.playlistTitle})`;
       } else if (tabMediaState && tabMediaState.pageTitle && tabMediaState.pageTitle !== 'No media detected' && tabMediaState.pageTitle !== 'Media Stream') {
         displayTitle = tabMediaState.pageTitle;
       } else if (currentTab && currentTab.title && currentTab.title !== 'YouTube') {
@@ -378,36 +489,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     mediaTitle.textContent = displayTitle;
     mediaTitle.title = displayTitle;
     sourceDomain.textContent = domainStr;
-    streamsCount.textContent = hasAnyMedia ? (isPlaylist ? 'Full Playlist Batch' : (isStream ? 'High Quality Media Stream' : `${totalCount} media source(s)`)) : 'No media detected';
+    if (streamsCount) streamsCount.textContent = hasAnyMedia ? (isPlaylist ? 'Full Playlist Batch' : (isStream ? (isAudioDomain ? 'SoundCloud Audio Stream' : 'High Quality Media Stream') : `${totalCount} media source(s)`)) : 'No media detected';
 
-    // Status Badge States
-    statusBadge.className = 'status-badge';
+    const thumbUrl = !isHome && hasAnyMedia ? getMediaThumbnail(activeUrl, tabMediaState) : null;
+
+    // Status Card & Header Label Theming
+    if (detectionSection) detectionSection.className = 'detection-section';
+    statusCard.className = 'status-card';
+    if (statusBadge) statusBadge.className = 'status-badge';
 
     if (isPlaylist) {
-      statusBadge.classList.add('playlist-detected');
-      statusText.textContent = 'Playlist Detected';
-      mediaTypeTag.textContent = 'PLAYLIST';
+      if (detectionSection) detectionSection.classList.add('playlist-detected');
+      statusCard.classList.add('playlist-detected');
+      if (statusBadge) statusBadge.classList.add('playlist-detected');
+      statusText.textContent = isAudioDomain ? 'Audio Playlist / Album' : 'Playlist Detected';
+      if (mediaTypeTag) mediaTypeTag.textContent = 'PLAYLIST';
+      renderDetectionIcon('playlist', thumbUrl);
 
-      btnDownloadVideo.disabled = false;
+      btnDownloadVideo.disabled = isAudioDomain;
       btnDownloadAudio.disabled = false;
-    } else if (hasVideo || isStream) {
-      statusBadge.classList.add('video-detected');
-      statusText.textContent = 'Video Stream Detected';
-      mediaTypeTag.textContent = 'VIDEO';
-
-      btnDownloadVideo.disabled = false;
-      btnDownloadAudio.disabled = false;
-    } else if (hasAudio) {
-      statusBadge.classList.add('audio-detected');
+    } else if (isAudioDomain || (!hasVideo && hasAudio)) {
+      if (detectionSection) detectionSection.classList.add('audio-detected');
+      statusCard.classList.add('audio-detected');
+      if (statusBadge) statusBadge.classList.add('audio-detected');
       statusText.textContent = 'Audio Stream Detected';
-      mediaTypeTag.textContent = 'AUDIO';
+      if (mediaTypeTag) mediaTypeTag.textContent = 'AUDIO';
+      renderDetectionIcon('audio', thumbUrl);
 
       btnDownloadVideo.disabled = true;
       btnDownloadAudio.disabled = false;
+    } else if (hasVideo || isStream) {
+      if (detectionSection) detectionSection.classList.add('video-detected');
+      statusCard.classList.add('video-detected');
+      if (statusBadge) statusBadge.classList.add('video-detected');
+      statusText.textContent = 'Video Stream Detected';
+      if (mediaTypeTag) mediaTypeTag.textContent = 'VIDEO';
+      renderDetectionIcon('video', thumbUrl);
+
+      btnDownloadVideo.disabled = false;
+      btnDownloadAudio.disabled = false;
     } else {
-      statusBadge.classList.add('no-media');
+      if (detectionSection) detectionSection.classList.add('no-media');
+      statusCard.classList.add('no-media');
+      if (statusBadge) statusBadge.classList.add('no-media');
       statusText.textContent = 'No Media Detected';
-      mediaTypeTag.textContent = 'IDLE';
+      if (mediaTypeTag) mediaTypeTag.textContent = 'IDLE';
+      renderDetectionIcon('idle', null);
 
       btnDownloadVideo.disabled = true;
       btnDownloadAudio.disabled = true;
@@ -489,6 +616,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let errorDismissTimer = null;
 
+  function dismissJobWithAnimation() {
+    if (progressSection && !progressSection.classList.contains('hidden')) {
+      progressSection.classList.add('is-leaving');
+      setTimeout(() => {
+        progressSection.classList.add('hidden');
+        progressSection.classList.remove('is-leaving');
+        if (currentJob) currentJob.status = 'idle';
+        if (actionGrid) {
+          actionGrid.classList.remove('hidden');
+          actionGrid.classList.add('is-entering');
+          setTimeout(() => actionGrid.classList.remove('is-entering'), 300);
+        }
+        chrome.runtime.sendMessage({ type: 'DISMISS_JOB' }).catch(() => {});
+      }, 180);
+    } else {
+      if (currentJob) currentJob.status = 'idle';
+      if (actionGrid) actionGrid.classList.remove('hidden');
+      chrome.runtime.sendMessage({ type: 'DISMISS_JOB' }).catch(() => {});
+    }
+  }
+
   /**
    * Render active download progress & logs
    */
@@ -501,24 +649,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    if (actionGrid) actionGrid.classList.add('hidden');
-    progressSection.classList.remove('hidden');
+    // Smoothly reveal progress section if action grid was visible
+    if (actionGrid && !actionGrid.classList.contains('hidden')) {
+      actionGrid.classList.add('hidden');
+      progressSection.classList.remove('hidden');
+      progressSection.classList.add('is-entering');
+      setTimeout(() => progressSection.classList.remove('is-entering'), 350);
+    } else {
+      progressSection.classList.remove('hidden');
+    }
 
     const percent = Math.round(currentJob.percent || 0);
     progressPercent.textContent = `${percent}%`;
     progressFill.style.width = `${percent}%`;
 
-    // Reset status color to default
-    progressStatus.style.color = '';
+    if (progressStatus) progressStatus.style.color = '';
 
     if (currentJob.status === 'downloading') {
       if (errorDismissTimer) {
         clearTimeout(errorDismissTimer);
         errorDismissTimer = null;
       }
+      progressFill.style.background = 'var(--accent-video)';
       const isPl = currentJob.isPlaylist;
-      progressStatus.textContent = isPl ? 'Downloading Playlist...' : `Downloading ${(currentJob.mediaType || 'Media').toUpperCase()}...`;
-      metricSpeed.textContent = currentJob.speed || 'Calculating...';
+      if (progressStatus) progressStatus.textContent = isPl ? 'Downloading Playlist...' : `Downloading ${(currentJob.mediaType || 'Media').toUpperCase()}...`;
+      metricSpeed.textContent = currentJob.speed || 'Starting...';
       metricEta.textContent = currentJob.eta || '--:--';
       btnCancelJob.classList.remove('hidden');
     } else if (currentJob.status === 'remuxing') {
@@ -526,47 +681,61 @@ document.addEventListener('DOMContentLoaded', async () => {
         clearTimeout(errorDismissTimer);
         errorDismissTimer = null;
       }
+      progressFill.style.background = 'var(--accent-video)';
       const isPl = currentJob.isPlaylist;
-      progressStatus.textContent = isPl ? 'Processing Playlist Tracks...' : 'Merging & Converting Formats...';
+      progressPercent.textContent = `${percent}%`;
+      if (progressStatus) progressStatus.textContent = isPl ? 'Processing Playlist Tracks...' : 'Merging & Converting Formats...';
       metricSpeed.textContent = currentJob.speed || 'Processing...';
       metricEta.textContent = currentJob.eta || '--:--';
       btnCancelJob.classList.remove('hidden');
     } else if (currentJob.status === 'complete') {
-      progressStatus.textContent = 'Download Complete!';
-      progressPercent.textContent = '100%';
+      progressPercent.textContent = 'Completed!';
+      if (progressStatus) progressStatus.textContent = 'Download Complete!';
       progressFill.style.width = '100%';
+      progressFill.style.background = 'var(--accent-video)';
       metricSpeed.textContent = 'Saved';
       metricEta.textContent = '00:00';
       btnCancelJob.classList.add('hidden');
 
       if (!errorDismissTimer) {
         errorDismissTimer = setTimeout(() => {
-          if (currentJob && currentJob.status === 'complete') {
-            progressSection.classList.add('hidden');
-            currentJob.status = 'idle';
-            if (actionGrid) actionGrid.classList.remove('hidden');
-            chrome.runtime.sendMessage({ type: 'DISMISS_JOB' }).catch(() => {});
-          }
+          dismissJobWithAnimation();
           errorDismissTimer = null;
-        }, 5000);
+        }, 4000);
       }
-    } else if (currentJob.status === 'error') {
-      progressStatus.textContent = 'Download Cancelled / Stopped';
-      progressStatus.style.color = '#ef4444';
+    } else if (currentJob.status === 'cancelled') {
+      progressPercent.textContent = 'Cancelled';
+      if (progressStatus) {
+        progressStatus.textContent = 'Download Cancelled';
+        progressStatus.style.color = '#ef4444';
+      }
+      progressFill.style.background = 'var(--accent-cancel)';
       metricSpeed.textContent = 'Stopped';
       metricEta.textContent = '--';
       btnCancelJob.classList.add('hidden');
 
       if (!errorDismissTimer) {
         errorDismissTimer = setTimeout(() => {
-          if (currentJob && currentJob.status === 'error') {
-            progressSection.classList.add('hidden');
-            currentJob.status = 'idle';
-            if (actionGrid) actionGrid.classList.remove('hidden');
-            chrome.runtime.sendMessage({ type: 'DISMISS_JOB' }).catch(() => {});
-          }
+          dismissJobWithAnimation();
           errorDismissTimer = null;
-        }, 5000);
+        }, 4000);
+      }
+    } else if (currentJob.status === 'error') {
+      progressPercent.textContent = 'Failed';
+      if (progressStatus) {
+        progressStatus.textContent = currentJob.error || 'Download Failed';
+        progressStatus.style.color = '#ef4444';
+      }
+      progressFill.style.background = 'var(--accent-error)';
+      metricSpeed.textContent = 'Failed';
+      metricEta.textContent = '--';
+      btnCancelJob.classList.add('hidden');
+
+      if (!errorDismissTimer) {
+        errorDismissTimer = setTimeout(() => {
+          dismissJobWithAnimation();
+          errorDismissTimer = null;
+        }, 4000);
       }
     }
 
@@ -616,8 +785,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     isTerminalVisible = show;
     if (isTerminalVisible) {
       terminalContainer.classList.remove('hidden');
+      if (btnToggleTerminal) {
+        btnToggleTerminal.style.background = 'var(--bg-circle-btn-hover)';
+        btnToggleTerminal.style.color = 'var(--accent-video)';
+      }
     } else {
       terminalContainer.classList.add('hidden');
+      if (btnToggleTerminal) {
+        btnToggleTerminal.style.background = '';
+        btnToggleTerminal.style.color = '';
+      }
     }
   }
 
@@ -639,7 +816,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       showTerminal(true);
     }
 
-    // Optimistically update UI to downloading state immediately
+    // Smoothly transition from action buttons to download progress bar
     currentJob = {
       id: 'job_' + Date.now(),
       status: 'downloading',
@@ -692,11 +869,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Action Buttons
   btnDownloadVideo.addEventListener('click', () => {
-    let targetUrl = (currentTab && currentTab.url) || (tabMediaState && tabMediaState.pageUrl) || '';
-    if (!targetUrl && tabMediaState && tabMediaState.items) {
-      const v = tabMediaState.items.find(i => i.type === 'video' && !i.isBlob && !i.isManifest);
-      if (v) targetUrl = v.url;
+    const pageUrl = (currentTab && currentTab.url) || (tabMediaState && tabMediaState.pageUrl) || '';
+    let targetUrl = pageUrl;
+
+    const isDedicatedPlatform = pageUrl && (
+      pageUrl.includes('youtube.com') ||
+      pageUrl.includes('youtu.be') ||
+      pageUrl.includes('soundcloud.com') ||
+      pageUrl.includes('vimeo.com') ||
+      pageUrl.includes('twitch.tv') ||
+      pageUrl.includes('tiktok.com')
+    );
+
+    if (!isDedicatedPlatform && tabMediaState && tabMediaState.items && tabMediaState.items.length > 0) {
+      const v = tabMediaState.items.find(i => i.type === 'video' && !i.isBlob) ||
+                tabMediaState.items.find(i => !i.isBlob);
+      if (v && v.url) {
+        targetUrl = v.url;
+      }
     }
+
     let title = (tabMediaState && tabMediaState.playlistTitle) || (tabMediaState && tabMediaState.pageTitle && tabMediaState.pageTitle !== 'Media Stream' && tabMediaState.pageTitle !== 'No media detected' ? tabMediaState.pageTitle : '') || (currentTab ? currentTab.title : '');
     if (title) {
       title = title.replace(/ - YouTube$/i, '').replace(/ \| SoundCloud$/i, '').replace(/ - Vimeo$/i, '').trim();
@@ -705,20 +897,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   btnDownloadAudio.addEventListener('click', () => {
-    let targetUrl = (currentTab && currentTab.url) || (tabMediaState && tabMediaState.pageUrl) || '';
-    if (!targetUrl && tabMediaState && tabMediaState.items) {
-      const a = tabMediaState.items.find(i => i.type === 'audio' && !i.isBlob && !i.isManifest);
-      if (a) targetUrl = a.url;
+    const pageUrl = (currentTab && currentTab.url) || (tabMediaState && tabMediaState.pageUrl) || '';
+    let targetUrl = pageUrl;
+
+    const isDedicatedPlatform = pageUrl && (
+      pageUrl.includes('youtube.com') ||
+      pageUrl.includes('youtu.be') ||
+      pageUrl.includes('soundcloud.com') ||
+      pageUrl.includes('vimeo.com') ||
+      pageUrl.includes('twitch.tv') ||
+      pageUrl.includes('tiktok.com')
+    );
+
+    if (!isDedicatedPlatform && tabMediaState && tabMediaState.items && tabMediaState.items.length > 0) {
+      const a = tabMediaState.items.find(i => i.type === 'audio' && !i.isBlob) ||
+                tabMediaState.items.find(i => !i.isBlob);
+      if (a && a.url) {
+        targetUrl = a.url;
+      }
     }
+
     let title = (tabMediaState && tabMediaState.playlistTitle) || (tabMediaState && tabMediaState.pageTitle && tabMediaState.pageTitle !== 'Media Stream' && tabMediaState.pageTitle !== 'No media detected' ? tabMediaState.pageTitle : '') || (currentTab ? currentTab.title : '');
     if (title) {
       title = title.replace(/ - YouTube$/i, '').replace(/ \| SoundCloud$/i, '').replace(/ - Vimeo$/i, '').trim();
     }
     startDownloadJob('audio', targetUrl, title);
-
   });
 
   btnCancelJob.addEventListener('click', async () => {
+    if (currentJob) {
+      currentJob.status = 'cancelled';
+      renderJobState();
+    }
     await chrome.runtime.sendMessage({ type: 'CANCEL_DOWNLOAD' });
   });
 
@@ -771,14 +981,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Listen for real-time progress broadcasts from background service worker
   chrome.runtime.onMessage.addListener((message) => {
     if (message && message.type === 'JOB_UPDATED') {
+      if (currentJob && currentJob.status === 'cancelled' && message.job && message.job.status !== 'cancelled' && message.job.status !== 'idle') {
+        return;
+      }
       currentJob = message.job;
       renderJobState();
     }
   });
 
-  // Dismiss completed / errored job immediately when popup closes (click outside)
+  // Dismiss completed / errored / cancelled job immediately when popup closes (click outside)
   const handlePopupDismiss = () => {
-    if (currentJob && (currentJob.status === 'complete' || currentJob.status === 'error')) {
+    if (currentJob && (currentJob.status === 'complete' || currentJob.status === 'error' || currentJob.status === 'cancelled')) {
       chrome.runtime.sendMessage({ type: 'DISMISS_JOB' }).catch(() => {});
     }
   };

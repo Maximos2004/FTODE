@@ -37,6 +37,17 @@
     'threads.net'
   ];
 
+  const AUDIO_DOMAINS = [
+    'soundcloud.com',
+    'bandcamp.com',
+    'mixcloud.com',
+    'audiomack.com',
+    'spotify.com',
+    'music.apple.com',
+    'deezer.com',
+    'tidal.com'
+  ];
+
   let lastReportedHash = '';
   let debounceTimeout = null;
 
@@ -185,6 +196,19 @@
     try {
       const hostname = new URL(url).hostname.toLowerCase();
       return STREAMING_DOMAINS.some(domain => hostname === domain || hostname.endsWith('.' + domain));
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Helper to determine if current domain is exclusively an audio streaming platform (SoundCloud, Bandcamp, etc.)
+   */
+  function isAudioOnlyDomain(url) {
+    if (!url) return false;
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      return AUDIO_DOMAINS.some(domain => hostname === domain || hostname.endsWith('.' + domain));
     } catch {
       return false;
     }
@@ -386,6 +410,86 @@
   }
 
   /**
+   * Helper to parse YouTube video ID from URL
+   */
+  function getYouTubeVideoId(url) {
+    if (!url) return null;
+    try {
+      const u = new URL(url);
+      if (u.hostname.includes('youtube.com')) {
+        if (u.searchParams.has('v')) return u.searchParams.get('v');
+        const parts = u.pathname.split('/');
+        const shortsIdx = parts.indexOf('shorts');
+        if (shortsIdx !== -1 && parts[shortsIdx + 1]) return parts[shortsIdx + 1];
+        const embedIdx = parts.indexOf('embed');
+        if (embedIdx !== -1 && parts[embedIdx + 1]) return parts[embedIdx + 1];
+      } else if (u.hostname.includes('youtu.be')) {
+        return u.pathname.replace(/^\//, '').split('/')[0].split('?')[0];
+      }
+    } catch {}
+    return null;
+  }
+
+  /**
+   * Helper to validate HTTP(S) URL
+   */
+  function isValidHttpUrl(str) {
+    if (!str || typeof str !== 'string') return false;
+    return str.startsWith('http://') || str.startsWith('https://') || str.startsWith('//');
+  }
+
+  /**
+   * Extract best available video or media thumbnail URL
+   */
+  function getBestThumbnail() {
+    try {
+      // 1. YouTube video ID (mqdefault is true 16:9 without baked-in 4:3 black bars)
+      const ytId = getYouTubeVideoId(window.location.href);
+      if (ytId) {
+        return `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg`;
+      }
+
+      // 2. OpenGraph Image
+      const ogImage = document.querySelector('meta[property="og:image"]');
+      if (ogImage && ogImage.content && isValidHttpUrl(ogImage.content)) {
+        return ogImage.content.startsWith('//') ? 'https:' + ogImage.content : ogImage.content;
+      }
+
+      // 3. Twitter Image
+      const twImage = document.querySelector('meta[name="twitter:image"], meta[name="twitter:image:src"]');
+      if (twImage && twImage.content && isValidHttpUrl(twImage.content)) {
+        return twImage.content.startsWith('//') ? 'https:' + twImage.content : twImage.content;
+      }
+
+      // 4. HTML5 Video Poster
+      const mainVideo = document.querySelector('video.html5-main-video') || document.querySelector('video[poster]');
+      if (mainVideo && mainVideo.poster && isValidHttpUrl(mainVideo.poster)) {
+        return mainVideo.poster;
+      }
+
+      // 5. Image src link tag
+      const linkImage = document.querySelector('link[rel="image_src"]');
+      if (linkImage && linkImage.href && isValidHttpUrl(linkImage.href)) {
+        return linkImage.href;
+      }
+
+      // 6. SoundCloud specific artwork
+      const scArtwork = document.querySelector('.fullHero__artwork span[style*="background-image"], .listenArtworkWrapper img');
+      if (scArtwork) {
+        if (scArtwork.src) return scArtwork.src;
+        const bg = scArtwork.style.backgroundImage;
+        const match = bg && bg.match(/url\(["']?(.*?)["']?\)/);
+        if (match && match[1]) return match[1];
+      }
+
+      // 7. Bandcamp specific album art
+      const bcArt = document.querySelector('#tralbumArt img');
+      if (bcArt && bcArt.src) return bcArt.src;
+    } catch {}
+    return null;
+  }
+
+  /**
    * Inspect all video & audio elements in current document context
    */
   function scanDomMedia() {
@@ -538,12 +642,16 @@
       });
     });
 
+    const isAudioOnly = isAudioOnlyDomain(window.location.href);
+
     return {
       isTopFrame: isTopFrame,
       pageUrl: window.location.href,
       pageTitle: pageTitle,
       playlistTitle: playlistTitle,
+      thumbnail: isTopFrame ? getBestThumbnail() : null,
       isStreamDomain: isStreamSite,
+      isAudioOnly: isAudioOnly,
       isPlaylist: isPlaylist,
       hasMediaTags: mediaItems.length > 0 || videos.length > 0 || audios.length > 0,
       items: mediaItems

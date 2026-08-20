@@ -34,6 +34,8 @@ FFMPEG_BACKUP_ZIP_URL = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essen
 
 # Global active process & write locks
 active_process = None
+active_download_context = None
+last_download_context = None
 active_lock = threading.Lock()
 stdout_lock = threading.Lock()
 bootstrap_lock = threading.Lock()
@@ -74,26 +76,169 @@ def log_debug(msg):
         pass
 
 
+def scan_dir_files(root_dir):
+    """
+    Recursively scans and returns a set of absolute file paths inside root_dir.
+    """
+    if not root_dir or not os.path.isdir(root_dir):
+        return set()
+    res = set()
+    for root, _, filenames in os.walk(root_dir):
+        for f in filenames:
+            res.add(os.path.abspath(os.path.join(root, f)))
+    return res
+
+
+def scan_dir_folders(root_dir):
+    """
+    Recursively scans and returns a set of absolute subdirectory paths inside root_dir.
+    """
+    if not root_dir or not os.path.isdir(root_dir):
+        return set()
+    res = set()
+    for root, dirnames, _ in os.walk(root_dir):
+        for d in dirnames:
+            res.add(os.path.abspath(os.path.join(root, d)))
+    return res
+
+
+def safe_delete_file(file_path, retries=15, delay=0.2):
+    """
+    Safely deletes a file with retries in case Windows file locks are temporarily held post-process termination.
+    """
+    if not file_path:
+        return False
+    for i in range(retries):
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                try:
+                    os.chmod(file_path, 0o777)
+                except Exception:
+                    pass
+                os.remove(file_path)
+                log_debug(f"[CLEANUP] Deleted residue file: {file_path}")
+                return True
+            else:
+                return True
+        except Exception as e:
+            log_debug(f"[CLEANUP] Retry {i+1}/{retries} deleting {file_path}: {e}")
+            time.sleep(delay)
+    return False
+
+
+def cleanup_download_residue(ctx):
+    """
+    Cleans up any partial / intermediate files, residue (.part, .ytdl, temp streams, etc.),
+    and empty subdirectories left behind by a cancelled or failed download.
+    """
+    if not ctx:
+        return
+    output_dir = ctx.get('output_dir')
+    if not output_dir or not os.path.isdir(output_dir):
+        return
+
+    files_before = ctx.get('files_before', set())
+    dirs_before = ctx.get('dirs_before', set())
+    is_playlist = ctx.get('is_playlist', False)
+    completed_files = ctx.get('completed_files', set())
+
+    # Snapshot current files
+    files_after = scan_dir_files(output_dir)
+    new_files = files_after - files_before
+
+    to_delete = set()
+
+    # 1. Any newly created files from this session
+    if not is_playlist:
+        to_delete.update(new_files)
+    else:
+        for f in new_files:
+            if f not in completed_files:
+                to_delete.add(f)
+
+    # 2. Any yt-dlp / aria2 / FFmpeg partial residue files in output_dir
+    residue_indicators = (
+        '.part', '.ytdl', '.temp', '.tmp', '.aria2', '.frag'
+    )
+    for f in files_after:
+        f_lower = f.lower()
+        if any(f_lower.endswith(sfx) or sfx in f_lower for sfx in residue_indicators):
+            if not is_playlist or f in new_files:
+                to_delete.add(f)
+
+    # Execute file deletion
+    for f_path in to_delete:
+        safe_delete_file(f_path)
+
+    # 3. Clean up empty subdirectories created during this session (e.g. empty playlist folder)
+    try:
+        dirs_after = scan_dir_folders(output_dir)
+        new_dirs = sorted(list(dirs_after - dirs_before), key=lambda d: len(d), reverse=True)
+        for d in new_dirs:
+            try:
+                if os.path.isdir(d) and not os.listdir(d):
+                    os.rmdir(d)
+                    log_debug(f"[CLEANUP] Removed empty folder: {d}")
+            except Exception as e:
+                log_debug(f"[CLEANUP] Could not remove folder {d}: {e}")
+    except Exception:
+        pass
+
+    # 4. Clean up session cookies temp file if exists
+    cookies_file = ctx.get('cookies_file')
+    if cookies_file and os.path.exists(cookies_file):
+        try:
+            os.remove(cookies_file)
+        except Exception:
+            pass
+
+
 def cleanup_all_processes():
     """
     Terminates any active child subprocess tree when host exits.
-    Prevents orphaned yt-dlp or ffmpeg processes when browser disconnects.
+    Prevents orphaned yt-dlp or ffmpeg processes and deletes unfinished download residue.
     """
-    global active_process
+    global active_process, active_download_context, last_download_context
+    log_debug("[EXIT] cleanup_all_processes invoked")
+    ctx = None
+    proc = None
     with active_lock:
-        if active_process is not None:
-            pid = active_process.pid
-            try:
-                if sys.platform == 'win32':
-                    subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                else:
-                    active_process.kill()
-            except Exception:
+        ctx = active_download_context or last_download_context
+        proc = active_process
+        if ctx is not None:
+            ctx['is_cancelled'] = True
+        active_process = None
+        active_download_context = None
+
+    if proc is not None:
+        pid = proc.pid
+        log_debug(f"[EXIT] Terminating active process PID {pid}")
+        try:
+            if sys.platform == 'win32':
+                subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                proc.kill()
+        except Exception as e:
+            log_debug(f"[EXIT] Process kill error: {e}")
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        try:
+            proc.wait(timeout=2.0)
+        except Exception:
+            pass
+
+        time.sleep(0.4)
+
+        if ctx is not None and not ctx.get('is_completed', False):
+            target_dir = ctx.get('output_dir')
+            if target_dir and os.path.isdir(target_dir):
+                log_debug(f"[EXIT] Cleaning residue in output_dir: {target_dir}")
                 try:
-                    active_process.kill()
-                except Exception:
-                    pass
-            active_process = None
+                    cleanup_download_residue(ctx)
+                except Exception as e:
+                    log_debug(f"[EXIT] cleanup_download_residue error: {e}")
 
 
 import atexit
@@ -823,7 +968,8 @@ def handle_download(payload):
         '--ignore-errors',
         '--no-abort-on-error',
         '--compat-options', 'no-youtube-unavailable-videos',
-        '--extractor-args', 'youtube:player_client=default,web_embedded,web,android,mweb,ios',
+        '--extractor-args', 'generic:impersonate;youtube:player_client=default,web_embedded,web,android,mweb,ios',
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         '--geo-bypass',
         '--extractor-retries', '10',
         '--sleep-interval', '1',
@@ -834,6 +980,10 @@ def handle_download(payload):
         '--file-access-retries', '5',
         '-o', output_template
     ])
+
+    page_url = payload.get('pageUrl')
+    if page_url and page_url != url:
+        cmd_args.extend(['--referer', page_url])
 
     # Browser authenticated cookies injection
     # Do NOT inject cookies for YouTube URLs by default to prevent YouTube's SABR / TV 360p downgrade!
@@ -854,6 +1004,28 @@ def handle_download(payload):
     if ffmpeg_bin:
         ffmpeg_dir = os.path.dirname(ffmpeg_bin) if ffmpeg_bin.endswith('.exe') else ffmpeg_bin
         cmd_args.extend(['--ffmpeg-location', ffmpeg_dir])
+
+    # Audio-only platform detection (SoundCloud, Bandcamp, Mixcloud, etc.)
+    AUDIO_ONLY_DOMAINS = (
+        'soundcloud.com',
+        'bandcamp.com',
+        'mixcloud.com',
+        'audiomack.com',
+        'spotify.com',
+        'music.apple.com',
+        'deezer.com',
+        'tidal.com'
+    )
+    is_audio_domain = any(d in url.lower() for d in AUDIO_ONLY_DOMAINS)
+
+    if is_audio_domain and media_type == 'video':
+        media_type = 'audio'
+        if target_format in ('mp4', 'mkv', 'webm', 'avi', 'mov', 'flv'):
+            target_format = 'mp3'
+        send_message({
+            'status': 'log',
+            'line': f"[INFO] Audio-only stream detected. Automatically extracting audio ({target_format.upper()})."
+        })
 
     if media_type == 'video':
         res_map = {
@@ -958,20 +1130,23 @@ def handle_download(payload):
         last_eta_estimate = remaining
         return format_time_eta(remaining)
 
-    def scan_dir_files(root_dir):
-        if not os.path.isdir(root_dir):
-            return set()
-        res = set()
-        for root, _, filenames in os.walk(root_dir):
-            for f in filenames:
-                res.add(os.path.join(root, f))
-        return res
-
-    # Snapshot files before execution recursively to detect newly created files
+    # Snapshot files and directories before execution recursively to detect newly created files
     files_before = scan_dir_files(output_dir)
+    dirs_before = scan_dir_folders(output_dir)
+
+    download_ctx = {
+        'output_dir': output_dir,
+        'files_before': files_before,
+        'dirs_before': dirs_before,
+        'is_cancelled': False,
+        'is_playlist': is_playlist,
+        'completed_files': set(),
+        'cookies_file': cookies_file
+    }
 
     try:
         with active_lock:
+            active_download_context = download_ctx
             creation_flags = 0
             if sys.platform == 'win32':
                 creation_flags = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0x08000000
@@ -987,9 +1162,12 @@ def handle_download(payload):
                 bufsize=1,
                 creationflags=creation_flags
             )
+            download_ctx['process'] = active_process
 
         # Stream unbuffered stdout line by line
         for clean_line in read_unbuffered_lines(active_process):
+            if download_ctx.get('is_cancelled'):
+                break
             log_debug(f"YT-DLP: {clean_line}")
             # Check for zero items
             if 'Downloading 0 items' in clean_line:
@@ -1072,6 +1250,8 @@ def handle_download(payload):
             dest_match = dest_regex.search(clean_line)
             if dest_match:
                 last_file = dest_match.group(1).strip().strip('"')
+                if is_playlist and last_file and not last_file.endswith('.part') and not last_file.endswith('.ytdl'):
+                    download_ctx['completed_files'].add(os.path.abspath(last_file))
 
             # Fallback regex progress
             prog_match = progress_regex.search(clean_line)
@@ -1160,24 +1340,44 @@ def handle_download(payload):
                 })
 
         try:
-            active_process.stdout.close()
+            if active_process and active_process.stdout:
+                active_process.stdout.close()
         except Exception:
             pass
 
-        return_code = active_process.wait()
+        return_code = 0
+        try:
+            if active_process:
+                return_code = active_process.wait()
+        except Exception:
+            pass
+
+        # Check if download was cancelled by user
+        if download_ctx.get('is_cancelled'):
+            log_debug("Download was cancelled. Running final residue cleanup.")
+            cleanup_download_residue(download_ctx)
+            with active_lock:
+                active_process = None
+                active_download_context = None
+            return
 
         with active_lock:
             active_process = None
+            active_download_context = None
 
         files_after = scan_dir_files(output_dir)
         new_files = list(files_after - files_before)
 
-        if new_files or (last_file and os.path.isfile(last_file)):
+        # Filter out partial / residue files from completed files list
+        real_new_files = [f for f in new_files if not f.endswith('.part') and not f.endswith('.ytdl') and '.part-' not in f and not f.endswith('.tmp') and not f.endswith('.temp')]
+
+        if real_new_files or (last_file and os.path.isfile(last_file) and not last_file.endswith('.part') and not last_file.endswith('.ytdl')):
             # Files were successfully written!
-            resolved_target = new_files[0] if new_files else last_file
-            if len(new_files) > 1:
+            download_ctx['is_completed'] = True
+            resolved_target = real_new_files[0] if real_new_files else last_file
+            if len(real_new_files) > 1:
                 skip_info = f" ({skipped_already_exists} skipped - already downloaded)" if skipped_already_exists > 0 else ""
-                msg = f"Saved {len(new_files)} track(s) to playlist folder!{skip_info}"
+                msg = f"Saved {len(real_new_files)} track(s) to playlist folder!{skip_info}"
             else:
                 msg = f"Saved: {os.path.basename(resolved_target)}"
 
@@ -1186,14 +1386,16 @@ def handle_download(payload):
                 'file': resolved_target,
                 'message': msg
             })
-        elif skipped_already_exists > 0 or (return_code == 0 and not zero_items_detected):
-            skip_msg = f"Completed! {skipped_already_exists} file(s) already existed in folder and were skipped." if skipped_already_exists > 0 else "Download completed successfully!"
+        elif skipped_already_exists > 0:
+            download_ctx['is_completed'] = True
+            skip_msg = f"Completed! {skipped_already_exists} file(s) already existed in folder and were skipped."
             send_message({
                 'status': 'complete',
                 'file': output_dir,
                 'message': skip_msg
             })
         else:
+            cleanup_download_residue(download_ctx)
             err_details = accumulated_errors[-1] if accumulated_errors else f"Process exited with code {return_code}"
             send_message({
                 'status': 'error',
@@ -1201,8 +1403,15 @@ def handle_download(payload):
             })
 
     except Exception as e:
+        log_debug(f"HANDLE_DOWNLOAD EXCEPTION: {e}")
         with active_lock:
+            if download_ctx.get('is_cancelled'):
+                cleanup_download_residue(download_ctx)
+                active_process = None
+                active_download_context = None
+                return
             active_process = None
+            active_download_context = None
         send_message({
             'status': 'error',
             'message': f"Process execution error: {str(e)}"
@@ -1213,37 +1422,67 @@ def handle_download(payload):
                 os.remove(cookies_file)
             except Exception:
                 pass
+        with active_lock:
+            active_download_context = None
 
 
 def handle_cancel(message=None):
     """
-    Terminates the active yt-dlp / FFmpeg process tree immediately.
+    Terminates the active yt-dlp / FFmpeg process tree immediately and cleans up residue files.
     """
-    global active_process
+    global active_process, active_download_context, last_download_context
+    ctx = None
+    proc = None
     with active_lock:
-        if active_process is not None:
-            pid = active_process.pid
-            try:
-                if sys.platform == 'win32':
-                    # Terminate process and all child subprocesses (yt-dlp + ffmpeg)
-                    subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                else:
-                    active_process.kill()
-            except Exception:
-                try:
-                    active_process.kill()
-                except Exception:
-                    pass
-            active_process = None
-            send_message({
-                'status': 'error',
-                'message': 'Download job cancelled by user.'
-            })
-        else:
-            send_message({
-                'status': 'log',
-                'line': '[INFO] No active process to cancel.'
-            })
+        ctx = active_download_context or last_download_context
+        proc = active_process
+        if ctx is not None:
+            ctx['is_cancelled'] = True
+        active_process = None
+        active_download_context = None
+
+    if proc is not None:
+        pid = proc.pid
+        log_debug(f"[CANCEL] Terminating active process PID {pid}")
+        try:
+            if sys.platform == 'win32':
+                # Terminate process and all child subprocesses (yt-dlp + ffmpeg)
+                subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                proc.kill()
+        except Exception as e:
+            log_debug(f"[CANCEL] taskkill error: {e}")
+
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+        # Wait briefly for process to exit so Windows releases all file handles
+        try:
+            proc.wait(timeout=2.0)
+        except Exception:
+            pass
+
+    # Wait for OS file handles to release
+    time.sleep(0.4)
+
+    target_dir = ctx.get('output_dir') if ctx else None
+    if not target_dir:
+        user_home = os.path.expanduser('~')
+        target_dir = os.path.abspath(os.path.join(user_home, 'Downloads', 'FTODE'))
+
+    if target_dir and os.path.isdir(target_dir):
+        log_debug(f"[CANCEL] Cleaning up residue for output_dir: {target_dir}")
+        try:
+            cleanup_download_residue({'output_dir': target_dir, 'files_before': set(), 'dirs_before': set(), 'is_playlist': False, 'completed_files': set()})
+        except Exception as e:
+            log_debug(f"[CANCEL] cleanup error: {e}")
+
+    send_message({
+        'status': 'cancelled',
+        'message': 'Download job cancelled by user. Partial files cleaned up.'
+    })
 
 
 def install_registry(extension_id=None):
@@ -1354,7 +1593,10 @@ def main():
                 thread = threading.Thread(target=handle_download, args=(message,), daemon=True)
                 thread.start()
             elif action == 'CANCEL':
-                handle_cancel()
+                try:
+                    handle_cancel(message)
+                except Exception as e:
+                    log_debug(f"HANDLE_CANCEL EXCEPTION: {e}")
             else:
                 send_message({
                     'status': 'error',

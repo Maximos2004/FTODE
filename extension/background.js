@@ -101,13 +101,13 @@ function updateTabBadge(tabId) {
 
   if (state.isPlaylist) {
     chrome.action.setBadgeText({ text: 'LIST', tabId }).catch(() => {});
-    chrome.action.setBadgeBackgroundColor({ color: '#8b5cf6', tabId }).catch(() => {});
+    chrome.action.setBadgeBackgroundColor({ color: '#38bdf8', tabId }).catch(() => {});
     return;
   }
 
   if (state.isStreamDomain) {
     chrome.action.setBadgeText({ text: '1', tabId }).catch(() => {});
-    chrome.action.setBadgeBackgroundColor({ color: '#10b981', tabId }).catch(() => {});
+    chrome.action.setBadgeBackgroundColor({ color: state.isAudioOnly ? '#e89f41' : '#6bd29d', tabId }).catch(() => {});
     return;
   }
 
@@ -117,12 +117,12 @@ function updateTabBadge(tabId) {
 
   if (count > 0) {
     chrome.action.setBadgeText({ text: String(count), tabId }).catch(() => {});
-    if (hasVideo) {
-      chrome.action.setBadgeBackgroundColor({ color: '#10b981', tabId }).catch(() => {});
-    } else if (hasAudio) {
-      chrome.action.setBadgeBackgroundColor({ color: '#06b6d4', tabId }).catch(() => {});
+    if (hasVideo && !state.isAudioOnly) {
+      chrome.action.setBadgeBackgroundColor({ color: '#6bd29d', tabId }).catch(() => {});
+    } else if (hasAudio || state.isAudioOnly) {
+      chrome.action.setBadgeBackgroundColor({ color: '#e89f41', tabId }).catch(() => {});
     } else {
-      chrome.action.setBadgeBackgroundColor({ color: '#6366f1', tabId }).catch(() => {});
+      chrome.action.setBadgeBackgroundColor({ color: '#38bdf8', tabId }).catch(() => {});
     }
   } else {
     chrome.action.setBadgeText({ text: '', tabId }).catch(() => {});
@@ -137,6 +137,11 @@ const KNOWN_STREAMING_DOMAINS = [
   'tiktok.com', 'twitter.com', 'x.com', 'reddit.com', 'dailymotion.com',
   'bilibili.com', 'instagram.com', 'facebook.com', 'fb.watch',
   'bandcamp.com', 'rumble.com', 'kick.com', 'odysee.com', 'mixcloud.com'
+];
+
+const KNOWN_AUDIO_DOMAINS = [
+  'soundcloud.com', 'bandcamp.com', 'mixcloud.com', 'audiomack.com',
+  'spotify.com', 'music.apple.com', 'deezer.com', 'tidal.com'
 ];
 
 function isHomePageOrFeed(url) {
@@ -279,6 +284,16 @@ function isStreamingUrl(url) {
   try {
     const host = new URL(url).hostname.toLowerCase();
     return KNOWN_STREAMING_DOMAINS.some(d => host === d || host.endsWith('.' + d));
+  } catch {
+    return false;
+  }
+}
+
+function isAudioOnlyUrl(url) {
+  if (!url) return false;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return KNOWN_AUDIO_DOMAINS.some(d => host === d || host.endsWith('.' + d));
   } catch {
     return false;
   }
@@ -449,6 +464,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       pageTitle: isHome ? 'No media detected' : ((tab && tab.title) || ''),
       playlistTitle: null,
       isStreamDomain: isHome ? false : isStreamingUrl(targetUrl),
+      isAudioOnly: isHome ? false : isAudioOnlyUrl(targetUrl),
       isPlaylist: isHome ? false : isPlaylistUrl(targetUrl),
       hasMediaTags: false,
       items: [],
@@ -494,6 +510,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             state.items = [];
             state.hasMediaTags = false;
             state.isStreamDomain = false;
+            state.isAudioOnly = false;
             state.isPlaylist = false;
             state.pageTitle = 'No media detected';
             state.playlistTitle = null;
@@ -506,6 +523,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           state.pageTitle = payload.pageTitle || sender.tab.title || state.pageTitle;
           state.playlistTitle = payload.playlistTitle || state.playlistTitle || null;
           state.isStreamDomain = payload.isStreamDomain !== undefined ? payload.isStreamDomain : isStreamingUrl(state.pageUrl);
+          state.isAudioOnly = payload.isAudioOnly !== undefined ? payload.isAudioOnly : isAudioOnlyUrl(state.pageUrl);
           state.isPlaylist = payload.isPlaylist !== undefined ? payload.isPlaylist : isPlaylistUrl(state.pageUrl);
           state.hasMediaTags = payload.hasMediaTags;
 
@@ -560,7 +578,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case 'DISMISS_JOB': {
-      if (currentJob && (currentJob.status === 'complete' || currentJob.status === 'error')) {
+      if (currentJob && (currentJob.status === 'complete' || currentJob.status === 'error' || currentJob.status === 'cancelled')) {
         currentJob.status = 'idle';
         currentJob.percent = 0;
         currentJob.speed = '';
@@ -623,7 +641,7 @@ async function handleGetPopupState(requestedTabId) {
   }
 
   // If a finished download job is from another tab or page, reset it to idle immediately
-  if (currentJob && (currentJob.status === 'complete' || currentJob.status === 'error')) {
+  if (currentJob && (currentJob.status === 'complete' || currentJob.status === 'error' || currentJob.status === 'cancelled')) {
     const currentUrl = activeTab ? activeTab.url : '';
     const jobUrl = currentJob.pageUrl || currentJob.url || '';
     const isDifferentPage = currentUrl && jobUrl && currentUrl !== jobUrl;
@@ -847,6 +865,11 @@ async function handleStartDownload(msg) {
 function handleNativeHostMessage(msg) {
   if (!msg) return;
 
+  // If the job is already marked as cancelled, ignore lingering in-flight progress/log updates
+  if (currentJob && currentJob.status === 'cancelled' && msg.status !== 'cancelled') {
+    return;
+  }
+
   if (msg.status === 'progress') {
     if (msg.percent !== undefined && !isNaN(msg.percent)) {
       currentJob.percent = Math.min(100, Math.max(0, parseFloat(msg.percent)));
@@ -860,7 +883,29 @@ function handleNativeHostMessage(msg) {
     }
   } else if (msg.status === 'log') {
     if (msg.line) appendJobLog(msg.line);
+  } else if (msg.status === 'cancelled') {
+    currentJob.status = 'cancelled';
+    currentJob.speed = 'Stopped';
+    currentJob.eta = '--';
+    currentJob.line = 'Download cancelled';
+    appendJobLog(`[INFO] ${msg.message || 'Download cancelled by user. Partial files cleaned up.'}`);
+    setTimeout(() => {
+      if (nativePort && currentJob && currentJob.status === 'cancelled') {
+        try { nativePort.disconnect(); } catch {}
+        nativePort = null;
+      }
+    }, 1000);
+    setTimeout(() => {
+      if (currentJob && currentJob.status === 'cancelled') {
+        currentJob.status = 'idle';
+        currentJob.percent = 0;
+        currentJob.speed = '';
+        currentJob.eta = '';
+        broadcastToPopup({ type: 'JOB_UPDATED', job: currentJob });
+      }
+    }, 4000);
   } else if (msg.status === 'complete') {
+    if (currentJob.status === 'cancelled') return;
     currentJob.status = 'complete';
     currentJob.percent = 100;
     currentJob.speed = 'Done';
@@ -883,6 +928,7 @@ function handleNativeHostMessage(msg) {
       }
     }, 5000);
   } else if (msg.status === 'error') {
+    if (currentJob.status === 'cancelled') return;
     currentJob.status = 'error';
     currentJob.speed = 'Failed';
     currentJob.eta = '--';
@@ -925,21 +971,26 @@ async function handleCancelDownload() {
   if (nativePort) {
     try {
       nativePort.postMessage({ action: 'CANCEL', jobId: currentJob.id });
-    } catch {}
-    setTimeout(() => {
-      try {
-        if (nativePort) {
-          nativePort.disconnect();
-        }
-      } catch {}
-      nativePort = null;
-    }, 150);
+    } catch (e) {
+      console.warn('[FTODE] Failed to send CANCEL to native host:', e);
+    }
   }
 
-  currentJob.status = 'error';
+  currentJob.status = 'cancelled';
+  currentJob.speed = 'Stopped';
+  currentJob.eta = '--';
   currentJob.error = 'Download cancelled by user';
-  currentJob.logs.push('[INFO] Download cancelled by user.');
+  currentJob.line = 'Download cancelled';
+  appendJobLog('[INFO] Download cancelled by user. Cleaning up partial files...');
   broadcastToPopup({ type: 'JOB_UPDATED', job: currentJob });
+
+  // Safety fallback disconnection timer (only if host doesn't respond in 15 seconds)
+  setTimeout(() => {
+    if (nativePort && currentJob && currentJob.status === 'cancelled') {
+      try { nativePort.disconnect(); } catch {}
+      nativePort = null;
+    }
+  }, 15000);
 
   return { status: 'cancelled' };
 }
