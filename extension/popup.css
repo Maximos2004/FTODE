@@ -55,6 +55,80 @@
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Light Theme for Popup */
+:root.light-theme,
+html.light-theme,
+body.light-theme,
+.light-theme body {
+  --bg-app: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --bg-circle-btn: #e2e8f0;
+  --bg-circle-btn-hover: #cbd5e1;
+  --bg-terminal: #f8fafc;
+  --bg-progress-track: #e2e8f0;
+
+  /* Accent Colors */
+  --accent-video: #10b981;
+  --accent-video-hover: #059669;
+  --accent-video-dark: #ffffff;
+
+  --accent-audio: #d97706;
+  --accent-audio-hover: #b45309;
+  --accent-audio-dark: #ffffff;
+
+  --accent-playlist: #0284c7;
+  --accent-playlist-hover: #0369a1;
+  --accent-playlist-dark: #ffffff;
+
+  --accent-cancel: #e11d48;
+  --accent-cancel-hover: #be123c;
+
+  --accent-error: #dc2626;
+  --accent-warn: #d97706;
+
+  /* Text Colors */
+  --text-pure: #0f172a;
+  --text-main: #1e293b;
+  --text-sub: #475569;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+
+  /* Borders & Shadows */
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-subtle-hover: rgba(0, 0, 0, 0.16);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-btn: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+body.light-theme .app-container {
+  background: var(--bg-app);
+}
+
+body.light-theme .stream-item-row {
+  background: #f8fafc;
+  border-color: rgba(2, 132, 199, 0.2);
+}
+
+body.light-theme .terminal-body {
+  color: #334155;
+}
+
+body.light-theme .detection-icon-wrapper {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+body.light-theme .term-mini-btn {
+  background: #e2e8f0;
+  color: #64748b;
+}
+
+body.light-theme .term-mini-btn:hover {
+  background: #cbd5e1;
+  color: #0f172a;
+}
+
 * {
   margin: 0;
   padding: 0;

@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Finally that online downloader extension (FTODE) - Settings & Setup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <script>
+    try {
+      if (localStorage.getItem('ftode_theme') === 'light') {
+        document.documentElement.classList.add('light-theme');
+      }
+    } catch {}
+  </script>
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
@@ -11,7 +21,7 @@
     <!-- Header -->
     <header class="header">
       <div class="header-brand">
-        <img src="icons/logo.png" class="header-logo" alt="FTODE Logo" width="38" height="38">
+        <img src="icons/logo.png" class="header-logo" alt="FTODE Logo" width="40" height="40">
         <div>
           <h1 class="header-title">FTODE Settings</h1>
           <p class="header-sub">Finally that online downloader extension</p>
@@ -19,11 +29,23 @@
       </div>
 
       <div class="header-right">
+        <!-- Prominent Ko-fi Support Button -->
         <a href="https://ko-fi.com/maxakt" target="_blank" rel="noopener noreferrer" class="btn-kofi-header" id="btn-kofi-header" title="Support development on Ko-fi">
-          <img src="icons/kofi.png" class="kofi-icon" alt="Ko-fi">
+          <img src="icons/kofi.png" class="kofi-icon" alt="Ko-fi" width="22" height="22">
           <span>Support on Ko-fi</span>
         </a>
-        <span class="version-tag">Manifest V3 • v1.0.0</span>
+
+        <!-- Manifest & Light/Dark Mode Column -->
+        <div class="header-meta-col">
+          <span class="version-tag">Manifest V3 • v1.0.0</span>
+          <div class="theme-toggle-row">
+            <span class="theme-label">Light/Dark Mode</span>
+            <label class="switch switch-sm" title="Toggle Light/Dark Theme">
+              <input type="checkbox" id="toggle-theme">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -33,15 +55,15 @@
         <!-- Media Formats Card -->
         <section class="card">
           <div class="card-header">
-            <div class="card-icon indigo">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-                <line x1="7" y1="2" x2="7" y2="22"></line>
-                <line x1="17" y1="2" x2="17" y2="22"></line>
-                <line x1="2" y1="12" x2="22" y2="12"></line>
+            <div class="card-icon video-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM10 14.5v-5l4 2.5-4 2.5z"/>
               </svg>
             </div>
-            <h2 class="card-title">Default Media Formats</h2>
+            <div>
+              <h2 class="card-title">Default Media Formats</h2>
+              <p class="card-desc">Configure formats and quality levels for one-click downloading</p>
+            </div>
           </div>
 
           <div class="form-grid">
@@ -57,9 +79,8 @@
                 <option value="FLV">FLV (Flash Video Container)</option>
                 <option value="GIF">GIF (Animated GIF Converter)</option>
               </select>
-              <span class="field-hint">Format for primary Video Action button in popup.</span>
+              <span class="field-hint">Primary format for Download Video button in popup.</span>
             </div>
-
 
             <!-- Video Quality -->
             <div class="form-group">
@@ -75,6 +96,7 @@
                 <option value="360p">Low Bandwidth (360p)</option>
                 <option value="240p">Minimal (240p)</option>
               </select>
+              <span class="field-hint">Downloads the best match up to chosen resolution.</span>
             </div>
 
             <!-- Audio Format -->
@@ -90,9 +112,8 @@
                 <option value="AAC">AAC (Raw Advanced Audio Stream)</option>
                 <option value="ALAC">ALAC (Apple Lossless Audio Codec)</option>
               </select>
-              <span class="field-hint">Format for primary Audio Action button in popup.</span>
+              <span class="field-hint">Primary format for Download Audio button in popup.</span>
             </div>
-
 
             <!-- Audio Quality -->
             <div class="form-group">
@@ -107,58 +128,67 @@
                 <option value="96k">96 kbps (Voice / Podcast Optimized)</option>
                 <option value="64k">64 kbps (Low Bitrate / Data Saver)</option>
               </select>
+              <span class="field-hint">Audio re-encoding bitrate when extracting sound.</span>
             </div>
           </div>
         </section>
 
-        <!-- Storage & Path Card -->
+        <!-- Storage & Path Card (Side-by-Side Grid) -->
         <section class="card">
           <div class="card-header">
-            <div class="card-icon emerald">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="card-icon folder-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
               </svg>
             </div>
-            <h2 class="card-title">Storage & Location</h2>
-          </div>
-
-          <div class="form-group">
-            <label for="download-folder" class="form-label">Download Folder Name</label>
-            <div class="input-with-prefix">
-              <span class="input-prefix">~/Downloads/</span>
-              <input type="text" id="download-folder" class="custom-input" value="FTODE" placeholder="FTODE">
+            <div>
+              <h2 class="card-title">Storage & File Handling</h2>
+              <p class="card-desc">Destination directory and collision behavior</p>
             </div>
-            <span class="field-hint">Files are automatically saved into your user's Downloads directory.</span>
           </div>
 
-          <div class="form-group" style="margin-top: 14px;">
-            <label for="existing-file-action" class="form-label">Duplicate / Already Downloaded Files</label>
-            <select id="existing-file-action" class="custom-select">
-              <option value="copy">Download Again (Add "(1)" Copy) - Default</option>
-              <option value="skip">Skip Already Downloaded Files (No Re-download)</option>
-              <option value="overwrite">Overwrite Existing File (Replace)</option>
-            </select>
-            <span class="field-hint">Controls what happens if a video or playlist track is already downloaded.</span>
+          <div class="storage-grid">
+            <div class="form-group">
+              <label for="download-folder" class="form-label">Download Folder Name</label>
+              <div class="input-with-prefix">
+                <span class="input-prefix">~/Downloads/</span>
+                <input type="text" id="download-folder" class="custom-input" value="FTODE" placeholder="FTODE">
+              </div>
+              <span class="field-hint">Files are saved into your Downloads folder.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="existing-file-action" class="form-label">Duplicate / Existing Files</label>
+              <select id="existing-file-action" class="custom-select">
+                <option value="copy">Download Again (Add "(1)" Copy)</option>
+                <option value="skip">Skip Already Downloaded Files</option>
+                <option value="overwrite">Overwrite Existing File (Replace)</option>
+              </select>
+              <span class="field-hint">Action if a file/track already exists.</span>
+            </div>
           </div>
         </section>
 
-        <!-- Debug & Advanced Card -->
+        <!-- Console & Diagnostics Card -->
         <section class="card">
           <div class="card-header">
-            <div class="card-icon cyan">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="card-icon terminal-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="4 17 10 11 4 5"></polyline>
                 <line x1="12" y1="19" x2="20" y2="19"></line>
               </svg>
             </div>
-            <h2 class="card-title">Console & Diagnostics</h2>
+            <div>
+              <h2 class="card-title">Console & Diagnostics</h2>
+              <p class="card-desc">Real-time log streaming for yt-dlp & FFmpeg</p>
+            </div>
           </div>
 
           <!-- Toggle -->
           <div class="toggle-group">
             <div class="toggle-info">
               <span class="toggle-title">Enable Detailed Debug & Console Stream</span>
-              <span class="toggle-description">Displays real-time yt-dlp logs, download speeds, and FFmpeg remuxing outputs directly inside the popup terminal.</span>
+              <span class="toggle-description">Streams live yt-dlp terminal lines, download percentages, and FFmpeg remuxing outputs directly inside the extension popup.</span>
             </div>
             <label class="switch">
               <input type="checkbox" id="enable-debug" checked>
@@ -170,12 +200,10 @@
         <!-- Save Button Bar -->
         <div class="actions-bar">
           <button id="btn-save-settings" class="btn-primary">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-              <polyline points="17 21 17 13 7 13 7 21"></polyline>
-              <polyline points="7 3 7 8 15 8"></polyline>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
-            Save Settings
+            <span>Save Settings</span>
           </button>
           <button id="btn-reset-settings" class="btn-secondary">Reset Defaults</button>
         </div>
@@ -186,15 +214,18 @@
         <!-- Native Host Status Card -->
         <section class="card host-card">
           <div class="card-header">
-            <div class="card-icon amber">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="card-icon host-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
                 <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
                 <line x1="6" y1="6" x2="6.01" y2="6"></line>
                 <line x1="6" y1="18" x2="6.01" y2="18"></line>
               </svg>
             </div>
-            <h2 class="card-title">Native Messaging Host</h2>
+            <div>
+              <h2 class="card-title">Native Messaging Host</h2>
+              <p class="card-desc">Local Python backend bridge</p>
+            </div>
           </div>
 
           <div class="host-status-box" id="host-status-box">
@@ -202,7 +233,7 @@
               <span class="status-bubble" id="host-bubble"></span>
               <span class="status-label" id="host-label">Checking Host...</span>
             </div>
-            <button id="btn-test-host" class="btn-sm">Test Connection</button>
+            <button id="btn-test-host" class="btn-pill-sm">Test Connection</button>
           </div>
 
           <div class="diagnostics-panel" id="diagnostics-panel">
@@ -218,11 +249,17 @@
               <code>com.ftode.host</code>
             </div>
             <div class="diag-item">
-              <span class="diag-key">yt-dlp Engine:</span>
+              <span class="diag-key">
+                <img src="icons/ytdlp.png" class="diag-inline-icon" alt="yt-dlp" width="18" height="18">
+                yt-dlp Engine:
+              </span>
               <code id="diag-ytdlp">Detecting...</code>
             </div>
             <div class="diag-item">
-              <span class="diag-key">FFmpeg Remuxer:</span>
+              <span class="diag-key">
+                <img src="icons/ffmpeg.png" class="diag-inline-icon" alt="FFmpeg" width="18" height="18">
+                FFmpeg Remuxer:
+              </span>
               <code id="diag-ffmpeg">Detecting...</code>
             </div>
           </div>
@@ -230,7 +267,7 @@
           <!-- Tool Management: Install / Check Updates -->
           <div class="bootstrap-section">
             <button id="btn-bootstrap-tools" class="btn-bootstrap">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
               </svg>
               <span id="label-bootstrap-tools">Check for Updates</span>
@@ -247,21 +284,22 @@
         <!-- Quick Info Card -->
         <section class="card">
           <div class="card-header">
-            <div class="card-icon indigo">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="16" x2="12" y2="12"></line>
-                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            <div class="card-icon info-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
               </svg>
             </div>
-            <h2 class="card-title">Quick Info & Features</h2>
+            <div>
+              <h2 class="card-title">Quick Info & Features</h2>
+              <p class="card-desc">How FTODE works under the hood</p>
+            </div>
           </div>
 
           <div class="guide-steps">
             <div class="step-item">
               <div class="step-num">⚡</div>
               <div class="step-body">
-                <b>Universal Media Sniffer:</b> Automatically intercepts HTML5 audio/video, HLS/DASH adaptive streams, and media across 1,000+ sites.
+                <b>Universal Media Sniffer:</b> Automatically intercepts HTML5 media, HLS/DASH adaptive streams, and web video across 1,000+ sites.
               </div>
             </div>
             <div class="step-item">
@@ -281,9 +319,9 @@
       </div>
     </main>
 
-    <!-- Toast Notification -->
+    <!-- Centered Floating Toast Notification (Middle Top) -->
     <div class="toast hidden" id="toast">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5">
+      <svg class="toast-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="20 6 9 17 4 12"></polyline>
       </svg>
       <span id="toast-message">Settings saved successfully!</span>

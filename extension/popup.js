@@ -998,6 +998,43 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('pagehide', handlePopupDismiss);
   window.addEventListener('beforeunload', handlePopupDismiss);
 
+  /**
+   * Theme Management (Synchronized with Options)
+   */
+  async function applyTheme() {
+    try {
+      const data = await chrome.storage.sync.get({ theme: 'dark' });
+      const isLight = data.theme === 'light';
+      if (isLight) {
+        document.documentElement.classList.add('light-theme');
+        document.body.classList.add('light-theme');
+        try { localStorage.setItem('ftode_theme', 'light'); } catch {}
+      } else {
+        document.documentElement.classList.remove('light-theme');
+        document.body.classList.remove('light-theme');
+        try { localStorage.setItem('ftode_theme', 'dark'); } catch {}
+      }
+    } catch (e) {
+      console.error('[Popup] Theme load error:', e);
+    }
+  }
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'sync' && changes.theme) {
+      const isLight = changes.theme.newValue === 'light';
+      if (isLight) {
+        document.documentElement.classList.add('light-theme');
+        document.body.classList.add('light-theme');
+        try { localStorage.setItem('ftode_theme', 'light'); } catch {}
+      } else {
+        document.documentElement.classList.remove('light-theme');
+        document.body.classList.remove('light-theme');
+        try { localStorage.setItem('ftode_theme', 'dark'); } catch {}
+      }
+    }
+  });
+
   // Start initialization
+  applyTheme();
   init();
 });

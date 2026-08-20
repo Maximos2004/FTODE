@@ -1,6 +1,6 @@
 /**
  * Finally that online downloader extension (FTODE) - Options Controller Script
- * Handles settings persistence, native host diagnostics, and setup assistance.
+ * Handles settings persistence, native host diagnostics, theme management, and setup assistance.
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -25,6 +25,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const diagYtdlp = document.getElementById('diag-ytdlp');
   const diagFfmpeg = document.getElementById('diag-ffmpeg');
 
+  // Theme Toggle
+  const toggleTheme = document.getElementById('toggle-theme');
+
   // Toast
   const toast = document.getElementById('toast');
   const toastMessage = document.getElementById('toast-message');
@@ -36,21 +39,63 @@ document.addEventListener('DOMContentLoaded', async () => {
     audioQuality: 'best',
     downloadFolder: 'FTODE',
     existingFileAction: 'copy',
-    enableDebug: true
+    enableDebug: true,
+    theme: 'dark'
   };
 
   /**
    * Load current extension ID
    */
   const extId = chrome.runtime.id || 'unknown';
-  extensionIdVal.textContent = extId;
+  if (extensionIdVal) extensionIdVal.textContent = extId;
 
-  btnCopyExtId.addEventListener('click', () => {
-    navigator.clipboard.writeText(extId).then(() => {
-      btnCopyExtId.textContent = 'Copied!';
-      setTimeout(() => { btnCopyExtId.textContent = 'Copy'; }, 1500);
+  if (btnCopyExtId) {
+    btnCopyExtId.addEventListener('click', () => {
+      navigator.clipboard.writeText(extId).then(() => {
+        btnCopyExtId.textContent = 'Copied!';
+        setTimeout(() => { btnCopyExtId.textContent = 'Copy'; }, 1500);
+      });
     });
-  });
+  }
+
+  /**
+   * Theme Management (Light / Dark mode)
+   */
+  async function loadTheme() {
+    try {
+      const data = await chrome.storage.sync.get({ theme: 'dark' });
+      const isLight = data.theme === 'light';
+      if (isLight) {
+        document.documentElement.classList.add('light-theme');
+        document.body.classList.add('light-theme');
+        try { localStorage.setItem('ftode_theme', 'light'); } catch {}
+        if (toggleTheme) toggleTheme.checked = true;
+      } else {
+        document.documentElement.classList.remove('light-theme');
+        document.body.classList.remove('light-theme');
+        try { localStorage.setItem('ftode_theme', 'dark'); } catch {}
+        if (toggleTheme) toggleTheme.checked = false;
+      }
+    } catch (e) {
+      console.error('[Options] Theme load error:', e);
+    }
+  }
+
+  if (toggleTheme) {
+    toggleTheme.addEventListener('change', async () => {
+      const isLight = toggleTheme.checked;
+      if (isLight) {
+        document.documentElement.classList.add('light-theme');
+        document.body.classList.add('light-theme');
+        try { localStorage.setItem('ftode_theme', 'light'); } catch {}
+      } else {
+        document.documentElement.classList.remove('light-theme');
+        document.body.classList.remove('light-theme');
+        try { localStorage.setItem('ftode_theme', 'dark'); } catch {}
+      }
+      await chrome.storage.sync.set({ theme: isLight ? 'light' : 'dark' });
+    });
+  }
 
   /**
    * Load saved settings
@@ -119,18 +164,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /**
-   * Show animated toast feedback
+   * Show animated floating toast feedback (Middle Top)
    */
   let toastTimer = null;
   function showToastNotification(msg, isError = false) {
     if (toastTimer) clearTimeout(toastTimer);
     toastMessage.textContent = msg;
-    toast.style.borderColor = isError ? '#ef4444' : '#10b981';
+
+    if (isError) {
+      toast.classList.add('toast-error');
+    } else {
+      toast.classList.remove('toast-error');
+    }
+
     toast.classList.remove('hidden');
 
     toastTimer = setTimeout(() => {
       toast.classList.add('hidden');
-    }, 2500);
+    }, 2800);
   }
 
   // Bootstrap & Update state
@@ -158,31 +209,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const data = response.data || {};
         diagYtdlp.textContent = data.ytdlp_version ? `v${data.ytdlp_version}` : (data.ytdlp_available ? 'Available' : 'Not Installed');
-        diagYtdlp.style.color = data.ytdlp_available ? '#34d399' : '#f87171';
+        diagYtdlp.style.color = data.ytdlp_available ? '#6bd29d' : '#f87171';
 
         diagFfmpeg.textContent = data.ffmpeg_version ? `v${data.ffmpeg_version}` : (data.ffmpeg_available ? 'Available' : 'Not Installed');
-        diagFfmpeg.style.color = data.ffmpeg_available ? '#34d399' : '#f87171';
+        diagFfmpeg.style.color = data.ffmpeg_available ? '#6bd29d' : '#f87171';
 
         // Update button state dynamically based on tool availability
         if (data.ytdlp_available && data.ffmpeg_available) {
           currentToolMode = 'check';
           if (labelBootstrapTools) labelBootstrapTools.textContent = 'Check for Updates';
           if (btnBootstrapTools) {
-            btnBootstrapTools.classList.remove('install-needed');
+            btnBootstrapTools.classList.remove('btn-install');
             btnBootstrapTools.title = 'Check for yt-dlp & FFmpeg updates';
           }
         } else {
           currentToolMode = 'install';
           if (labelBootstrapTools) labelBootstrapTools.textContent = 'Install yt-dlp & FFmpeg (1-Click)';
           if (btnBootstrapTools) {
-            btnBootstrapTools.classList.add('install-needed');
+            btnBootstrapTools.classList.add('btn-install');
             btnBootstrapTools.title = 'Install missing yt-dlp or FFmpeg binaries';
           }
         }
 
         showToastNotification('Native host connected successfully!');
       } else {
-        hostBubble.className = 'status-bubble error';
+        hostBubble.className = 'status-bubble offline';
         hostLabel.textContent = 'Disconnected / Not Registered';
         diagYtdlp.textContent = 'Host Offline';
         diagFfmpeg.textContent = 'Host Offline';
@@ -193,7 +244,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         showToastNotification('Native host offline. See setup instructions.', true);
       }
     } catch (err) {
-      hostBubble.className = 'status-bubble error';
+      hostBubble.className = 'status-bubble offline';
       hostLabel.textContent = 'Connection Failed';
       diagYtdlp.textContent = 'Error';
       diagFfmpeg.textContent = 'Error';
@@ -300,7 +351,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   downloadFolderInput.addEventListener('change', () => saveSettings(false));
   enableDebugToggle.addEventListener('change', () => saveSettings(false));
 
-  // Initialize
+  // Initialize Theme and Settings
+  await loadTheme();
   await loadSettings();
   testHost();
 });
