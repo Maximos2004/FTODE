@@ -64,6 +64,12 @@ It will connect the extension with Python and make sure `yt-dlp` and `ffmpeg` ar
 3. Click **Download MP4** or **Download MP3**.
 4. The file will be saved in your `Downloads/FTODE` folder!
 
+#### 🎬 Video Download:
+![Video Download Showcase](assets/showcase-video-download.gif)
+
+#### 🎵 Audio Download:
+![Audio Download Showcase](assets/showcase-audio-download.gif)
+
 ---
 
 ## ⚙️ Settings
@@ -73,6 +79,8 @@ Right-click the extension icon and choose **Options** (or click the gear icon in
 - Pick your preferred audio format (MP3, FLAC, WAV, OPUS, etc.).
 - Set a custom download folder (like `D:\Downloads\FTODE` or `~/Videos/FTODE`).
 - Click "Check for Updates" to update `yt-dlp` and `ffmpeg` anytime.
+
+![Settings Showcase](assets/showcase-settings.gif)
 
 ---
 
