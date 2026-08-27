@@ -96,7 +96,7 @@ If you want to package the project into zip files to share:
 
 ## 💖 Credits & Support
 
-If you like this project, feel free to support it:
+If you like this project, feel free to support me :> :
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/F6V82112T7)
 
