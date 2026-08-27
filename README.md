@@ -8,7 +8,7 @@
 
 **Finally that online downloader extension (FTODE)** is a modern browser extension paired with a Python Native Messaging backend. It detects media streams in real-time across the web (including direct HTML5 media and adaptive HLS / DASH / YouTube / Vimeo / SoundCloud streams) and provides a sleek two-button download interface for the highest quality video and audio.
 
-![Theme](https://img.shields.io/badge/Theme-Obsidian%20Dark-6366f1)
+![Theme](https://img.shields.io/badge/Theme-Dark%20%7C%20Light%20Mode-6366f1)
 ![Browsers](https://img.shields.io/badge/Browsers-Chrome%20%7C%20Opera%20%7C%20Edge%20%7C%20Firefox-10b981)
 ![Manifest](https://img.shields.io/badge/Extension-Manifest%20V3-10b981)
 ![Backend](https://img.shields.io/badge/Backend-Python%20%7C%20yt--dlp-06b6d4)
@@ -16,7 +16,7 @@
 ![Zero-Setup](https://img.shields.io/badge/Binaries-Auto--Bootstrapped-10b981)
 ![License](https://img.shields.io/badge/License-GPLv3-blue.svg)
 
-> ✨ **Note:** This project is **100% Vibe Coded** — crafted with modern agentic workflows, clean aesthetics, obsidian glassmorphism, and instant zero-friction usability.
+> ✨ **Note:** This project is **~80% Vibe Coded** — crafted with modern agentic workflows, clean aesthetics, obsidian glassmorphism, and instant zero-friction usability.
 
 ---
 
@@ -26,15 +26,16 @@
 Maxs-Downloader/
 ├── extension/
 │   ├── manifest.json                    # Universal Manifest V3 specification
-│   ├── popup.html                       # Sleek obsidian dark UI
-│   ├── popup.css                        # Polished styling & animations
-│   ├── popup.js                         # UI controller & live stream log renderer
-│   ├── options.html                     # Settings & host diagnostics page
-│   ├── options.css                      # Options layout & design tokens
-│   ├── options.js                       # Storage sync & host connectivity tester
-│   ├── background.js                    # Dual-pass sniffer & native messaging manager
-│   ├── content.js                       # DOM media inspector (Pass 1)
-│   └── icons/                           # High-res icons (16, 32, 48, 128)
+│   ├── theme-init.js                    # Zero-flash instant Dark/Light theme initializer
+│   ├── popup.html                       # Modern popup interface
+│   ├── popup.css                        # Obsidian glassmorphism & responsive styles
+│   ├── popup.js                         # Dynamic stream controller & live download manager
+│   ├── options.html                     # Full settings, diagnostics & host manager
+│   ├── options.css                      # Settings design system & dual-theme tokens
+│   ├── options.js                       # Preference persistence & tool auto-updater
+│   ├── background.js                    # Dual-pass media sniffer & native messaging bridge
+│   ├── content.js                       # DOM media inspector & title sanitizer (Pass 1)
+│   └── icons/                           # High-res logos & engine branding assets
 ├── native_host/
 │   ├── host.py                          # Python Native Messaging protocol handler
 │   ├── run_host.bat                     # Windows stdio launcher wrapper
@@ -46,7 +47,7 @@ Maxs-Downloader/
 │       ├── yt-dlp.exe
 │       ├── ffmpeg.exe
 │       └── ffprobe.exe
-└── setup.bat                            # 1-Click setup root launcher
+└── setup.bat                            # 1-Click root setup launcher
 ```
 
 ---
@@ -54,9 +55,9 @@ Maxs-Downloader/
 ## ✨ Features & Architecture
 
 ### 1. Zero Manual Software Installation (Self-Bootstrapping)
-* **Prepackaged & Auto-Downloaded Tools:** You do **not** need to manually download or configure `yt-dlp` or `FFmpeg` on your system.
+* **Prepackaged & Auto-Downloaded Tools:** You do **not** need to manually install or configure `yt-dlp` or `FFmpeg` on your system.
 * **Auto-Installer:** The Python Native Host automatically downloads the latest official Windows standalone releases of `yt-dlp.exe`, `ffmpeg.exe`, and `ffprobe.exe` directly into `native_host/bin/` if not present.
-* **1-Click Update from Options UI:** Click the "Auto-Install / Update yt-dlp & FFmpeg" button in the extension settings at any time to upgrade to the latest versions.
+* **1-Click Update from Options UI:** Click the "Check for Updates" button in the extension settings at any time to upgrade to the latest versions with a live progress bar.
 
 ### 2. Dual-Pass Media Sniffing Engine
 * **Pass 1 (DOM Inspector - `content.js`):**
@@ -68,13 +69,33 @@ Maxs-Downloader/
   * Intercepts media responses via `chrome.webRequest.onHeadersReceived` matching MIME types (`video/*`, `audio/*`, `application/vnd.apple.mpegurl`, `application/dash+xml`) and extensions (`.mp4`, `.webm`, `.mp3`, `.m3u8`, `.mpd`, `.flac`, `.opus`, etc.).
   * Updates toolbar badge in real-time (`VID` green / `AUD` cyan / `LIST` purple).
 
-### 3. Sleek Obsidian UI & Dynamic Actions
-* **Obsidian Dark Aesthetic:** Deep obsidian `#0f1117`, slate cards `#1a1d27`, crisp glowing accents (`#6366f1` Indigo, `#10b981` Emerald, `#06b6d4` Cyan).
-* **Detection Status Header:** Real-time badge indicating `"Video Stream Detected"`, `"Audio Stream Detected"`, `"Playlist Detected"`, or `"No Media Detected"`.
-* **Two Primary Action Buttons:**
-  * `Download [Video Format]` (e.g., `Download MP4` / `Download WEBM`)
-  * `Download [Audio Format]` (e.g., `Download MP3` / `Download FLAC`)
-* **Live Terminal Stream:** Inline collapsible console showing unbuffered real-time `yt-dlp` logs, download percentage, speed (MB/s), ETA, and FFmpeg remuxing logs.
+### 3. Modern UI & Dynamic Interface
+
+#### 🌗 Dual Theme Support (Dark & Light)
+* **Obsidian Dark Theme:** Deep obsidian `#12171d` background, slate glass cards `#1f2732`, crisp borders, and glowing accents.
+* **Clean Light Theme:** Soft slate `#f1f5f9` background, pure white `#ffffff` cards, and high-contrast typography.
+* **Zero Theme Flashing:** `theme-init.js` immediately applies user preferences before DOM render to eliminate flicker.
+
+#### 🎛️ Interactive Extension Popup (`popup.html`)
+* **Detection Status Card:** Displays real-time detection status (`Video Stream Detected`, `Audio Stream Detected`, `Playlist Detected`), cleaned media title, and source website domain.
+* **Two Primary Pill Action Buttons:**
+  * `Download [Video Format]` (Emerald green accent, e.g. `Download MP4` / `Download WEBM`)
+  * `Download [Audio Format]` (Amber gold accent, e.g. `Download MP3` / `Download FLAC`)
+* **Live Download Progress & Metrics:** Real-time percentage fill bar, transfer speed (MB/s), ETA countdown, and an inline `Cancel Download` button.
+* **Detected Streams Accordion:** Collapsible stream inspector showing individual resolutions, bitrates, and direct stream links.
+* **Embedded Console Terminal:** Collapsible live terminal window displaying unbuffered `yt-dlp` logs with 1-click **Copy** and **Clear** controls.
+* **Live Status Footer Chips:** Displays real-time host connectivity (`Host: Ready`) and destination directory chip (`Folder: FTODE`).
+* **Host Setup Alert Banner:** Non-intrusive warning alert that appears only if the local Python Native Host needs registration.
+
+#### ⚙️ Settings & Host Management (`options.html`)
+* **Interactive Header:** Live version badge, animated Ko-fi support button with playful wiggle animation, and Dark/Light mode toggle switch.
+* **Media Format & Quality Pickers:** Configure target video formats (`MP4`, `WEBM`, `MKV`, `MOV`, `AVI`, `FLV`, `GIF`), video resolutions (up to 8K), audio formats (`MP3`, `M4A`, `FLAC`, `WAV`, `OPUS`, `OGG`, `AAC`, `ALAC`), and bitrates (up to 320 kbps).
+* **Storage & Collision Handling:** Custom relative download folder name (inside `~/Downloads/`) and duplicate file actions (`Download Again (Copy)`, `Skip`, `Overwrite`).
+* **Console Streaming Toggle:** Easily enable or disable inline terminal output in the popup.
+* **Native Host Diagnostics:** Live status bubble, connectivity tester, Extension ID copy tool, and detected tool versions.
+* **Self-Bootstrapping Engine Manager:** 1-Click "Check for Updates" button with an animated progress bar.
+* **Floating Toast Feedback:** Centered floating toast alerts confirming saved preferences.
+* **Subtle Footer Credits:** Clean attribution to **MaxAkt**, open-source dependencies, and GPL-3.0.
 
 ---
 
@@ -119,20 +140,19 @@ Double-click **`setup.bat`** in the root project folder (or run `install_host.ba
 
 ---
 
-## ⚙️ Configuration & Options
+## 💖 Credits & Acknowledgements
 
-Access the Options page by clicking the **Gear** icon in the popup or right-clicking the extension icon -> **Options**:
-* **Video Formats:** `MP4`, `WEBM`, `MKV`, `MOV`, `AVI`, `FLV`, `GIF` (Animated GIF).
-* **Video Resolutions:** `Best Available (up to 8K)`, `8K (4320p)`, `4K (2160p)`, `2K (1440p)`, `1080p (Full HD)`, `720p (HD)`, `480p`, `360p`, `240p`.
-* **Audio Formats:** `MP3`, `M4A (AAC)`, `FLAC (Lossless)`, `WAV (PCM)`, `OPUS`, `OGG (Vorbis)`, `AAC`, `ALAC (Apple Lossless)`.
+**FTODE** is built with modern vibe coding workflows and powered by open-source foundations:
 
-* **Audio Bitrates:** `Best Available`, `320 kbps (Extreme)`, `256 kbps`, `192 kbps`, `160 kbps`, `128 kbps`, `96 kbps (Voice/Podcast)`, `64 kbps (Data Saver)`.
-* **Download Directory:** Custom relative folder inside Downloads (default: `FTODE`).
-* **Live Debug Console:** Toggle inline terminal stream.
-* **Auto-Installer / Updater:** 1-Click button to check for updates or download tools.
+* **Creator & Developer:** **MaxAkt**
+* **Core Media Engines:**
+  * **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** — Universal media stream extraction and downloading engine.
+  * **[FFmpeg](https://ffmpeg.org)** & **[ffprobe](https://ffmpeg.org)** — Multimedia multiplexing, format conversion, and GIF creation framework.
+* **Typography:** [Plus Jakarta Sans](https://fonts.google.com/specimen/Plus+Jakarta+Sans) & [Outfit](https://fonts.google.com/specimen/Outfit).
 
 ---
 
 ## 📄 License
 
 This project is licensed under the **GNU General Public License v3.0 (GPLv3)**. See the [LICENSE](LICENSE) file for details.
+

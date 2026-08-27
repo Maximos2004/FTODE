@@ -11,6 +11,7 @@
     }
   },
   "description": "High-performance media stream sniffer and video/audio downloader powered by native yt-dlp.",
+  "author": "MaxAkt",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",

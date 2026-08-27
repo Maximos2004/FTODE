@@ -49,6 +49,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const extId = chrome.runtime.id || 'unknown';
   if (extensionIdVal) extensionIdVal.textContent = extId;
 
+  const manifest = chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
+  const footerVersionEl = document.getElementById('footer-version');
+  if (footerVersionEl && manifest?.version) {
+    footerVersionEl.textContent = `v${manifest.version}`;
+  }
+
   if (btnCopyExtId) {
     btnCopyExtId.addEventListener('click', () => {
       navigator.clipboard.writeText(extId).then(() => {
