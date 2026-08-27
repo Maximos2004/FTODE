@@ -22,6 +22,7 @@ A simple browser extension + Python backend that lets you download video and aud
 
 *Effortless 1-click downloads with live speed, progress percentage, and console output.*
 
+Yes I use Opera Don't Judge me xP
 </div>
 
 ---
