@@ -40,10 +40,12 @@ A simple browser extension + Python backend that lets you download video and aud
 1. Open your browser extensions page:
    - **Chrome / Chromium / Brave:** `chrome://extensions`
    - **Edge:** `edge://extensions`
-   - **Opera:** `opera://extensions`
+   - **Opera / Opera GX:** `opera://extensions`
    - **Firefox:** `about:debugging#/runtime/this-firefox`
 2. Turn on **Developer mode** (top right switch).
-3. Click **Load unpacked** (or "Load Temporary Add-on" in Firefox) and select the `extension` folder from this repo.
+3. Load the extension:
+   - **Chrome / Opera / Edge / Brave:** Click **Load unpacked** and select the `extension` folder (or drag & drop `FTODE-Extension-Chrome.zip`).
+   - **Firefox:** Click **Load Temporary Add-on...** and select `manifest.firefox.json` in the `extension` folder (or select `FTODE-Extension-Firefox.zip`).
 4. Pin the extension to your toolbar so you can click it easily.
 
 ---

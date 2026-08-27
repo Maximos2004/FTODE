@@ -69,16 +69,16 @@ STEP 2: Add Extension to Your Browser
 1. Open your browser and go to your extensions manager:
    - Chrome / Brave:  chrome://extensions
    - Microsoft Edge:  edge://extensions
-   - Opera:           opera://extensions
+   - Opera / Opera GX: opera://extensions
 2. Turn ON "Developer mode" (toggle switch in top-right corner).
-3. Drag and drop "FTODE-Extension.zip" directly onto the extensions page!
-   (OR extract "FTODE-Extension.zip" into a folder and click "Load unpacked").
+3. Drag and drop "FTODE-Extension-Chrome.zip" directly onto the page!
+   (OR extract it into a folder and click "Load unpacked").
 4. Pin the FTODE icon to your toolbar.
 
 >>> For Mozilla Firefox / Floorp / LibreWolf:
 1. Open Firefox and go to:  about:debugging#/runtime/this-firefox
 2. Click "Load Temporary Add-on...".
-3. Select the "FTODE-Extension.zip" file.
+3. Select the "FTODE-Extension-Firefox.zip" file.
 
 
 ==========================
@@ -125,15 +125,15 @@ STEP 2: Add Extension to Your Browser
 1. Open your browser and go to your extensions manager:
    - Chrome / Chromium / Brave: chrome://extensions
    - Microsoft Edge:            edge://extensions
-   - Opera:                     opera://extensions
+   - Opera / Opera GX:          opera://extensions
 2. Turn ON "Developer mode" (toggle switch in top-right corner).
-3. Extract "FTODE-Extension.zip" and click "Load unpacked" (or drag & drop the zip).
+3. Extract "FTODE-Extension-Chrome.zip" and click "Load unpacked" (or drag & drop the zip).
 4. Pin the FTODE icon to your toolbar.
 
 >>> For Mozilla Firefox / Floorp / LibreWolf:
 1. Open Firefox and go to:  about:debugging#/runtime/this-firefox
 2. Click "Load Temporary Add-on...".
-3. Select the "FTODE-Extension.zip" file.
+3. Select the "FTODE-Extension-Firefox.zip" file.
 
 
 ==========================
@@ -204,25 +204,59 @@ def generate_ftode_logo_ico(output_path):
         return False
 
 
-def build_extension_archive(version, dist_path):
-    """Builds a universal clean .zip containing the extension."""
-    zip_name = f"FTODE-Extension-v{version}.zip"
-    zip_path = os.path.join(dist_path, zip_name)
+def build_extension_archives(version, dist_path):
+    """Builds clean dedicated .zip packages for Chrome/Opera/Edge and Firefox."""
+    chrome_zip_name = f"FTODE-Extension-Chrome-v{version}.zip"
+    chrome_zip_path = os.path.join(dist_path, chrome_zip_name)
+    firefox_zip_name = f"FTODE-Extension-Firefox-v{version}.zip"
+    firefox_zip_path = os.path.join(dist_path, firefox_zip_name)
 
-    file_count = 0
-    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+    firefox_manifest_source = os.path.join(EXTENSION_DIR, 'manifest.firefox.json')
+    has_firefox_manifest = os.path.isfile(firefox_manifest_source)
+
+    # 1. Build Chrome / Chromium (Opera, Edge, Brave) Extension Archive
+    chrome_count = 0
+    with zipfile.ZipFile(chrome_zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         for root, dirs, files in os.walk(EXTENSION_DIR):
             dirs[:] = [d for d in dirs if not should_exclude(d)]
             for file in files:
-                if should_exclude(file):
+                if should_exclude(file) or file == 'manifest.firefox.json':
                     continue
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, EXTENSION_DIR)
                 zf.write(full_path, rel_path)
-                file_count += 1
+                chrome_count += 1
 
-    size = os.path.getsize(zip_path)
-    return zip_name, zip_path, file_count, size
+    # 2. Build Firefox Extension Archive
+    firefox_count = 0
+    with zipfile.ZipFile(firefox_zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk(EXTENSION_DIR):
+            dirs[:] = [d for d in dirs if not should_exclude(d)]
+            for file in files:
+                if should_exclude(file) or file == 'manifest.firefox.json':
+                    continue
+                full_path = os.path.join(root, file)
+                rel_path = os.path.relpath(full_path, EXTENSION_DIR)
+                if file == 'manifest.json' and has_firefox_manifest:
+                    zf.write(firefox_manifest_source, 'manifest.json')
+                else:
+                    zf.write(full_path, rel_path)
+                firefox_count += 1
+
+    # Default universal extension alias pointing to Chrome build
+    universal_zip_name = f"FTODE-Extension-v{version}.zip"
+    universal_zip_path = os.path.join(dist_path, universal_zip_name)
+    shutil.copyfile(chrome_zip_path, universal_zip_path)
+
+    chrome_size = os.path.getsize(chrome_zip_path)
+    firefox_size = os.path.getsize(firefox_zip_path)
+    universal_size = os.path.getsize(universal_zip_path)
+
+    return (
+        chrome_zip_name, chrome_zip_path, chrome_count, chrome_size,
+        firefox_zip_name, firefox_zip_path, firefox_count, firefox_size,
+        universal_zip_name, universal_zip_path, universal_size
+    )
 
 
 def get_native_host_base64_payload():
@@ -375,7 +409,7 @@ echo ""
 """
 
 
-def build_windows_release_zip(version, dist_path, ext_zip_path, payload_b64):
+def build_windows_release_zip(version, dist_path, chrome_ext_path, firefox_ext_path, payload_b64):
     """Builds the clean Windows release bundle."""
     release_zip_name = f"FTODE-v{version}-Windows.zip"
     release_zip_path = os.path.join(dist_path, release_zip_name)
@@ -388,7 +422,9 @@ def build_windows_release_zip(version, dist_path, ext_zip_path, payload_b64):
     with zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(os.path.join(base_folder, 'FTODE Host Setup.bat'), setup_bat)
         zf.writestr(os.path.join(base_folder, 'FTODE Host Uninstall.bat'), uninstall_bat)
-        zf.write(ext_zip_path, os.path.join(base_folder, 'FTODE-Extension.zip'))
+        zf.write(chrome_ext_path, os.path.join(base_folder, 'FTODE-Extension-Chrome.zip'))
+        zf.write(firefox_ext_path, os.path.join(base_folder, 'FTODE-Extension-Firefox.zip'))
+        zf.write(chrome_ext_path, os.path.join(base_folder, 'FTODE-Extension.zip'))
         zf.writestr(os.path.join(base_folder, 'Instructions.txt'), INSTRUCTIONS_WINDOWS_TEXT)
 
     for attempt in range(10):
@@ -405,7 +441,7 @@ def build_windows_release_zip(version, dist_path, ext_zip_path, payload_b64):
     return release_zip_name, release_zip_path, size
 
 
-def build_linux_release_zip(version, dist_path, ext_zip_path, payload_b64):
+def build_linux_release_zip(version, dist_path, chrome_ext_path, firefox_ext_path, payload_b64):
     """Builds the clean Linux release bundle."""
     release_zip_name = f"FTODE-v{version}-Linux.zip"
     release_zip_path = os.path.join(dist_path, release_zip_name)
@@ -416,7 +452,6 @@ def build_linux_release_zip(version, dist_path, ext_zip_path, payload_b64):
 
     temp_zip = os.path.join(dist_path, f"temp_linux_{os.getpid()}.zip")
     with zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
-        # Create ZipInfo with POSIX executable permissions (0o755)
         setup_info = zipfile.ZipInfo(os.path.join(base_folder, 'FTODE Host Setup.sh'))
         setup_info.external_attr = 0o755 << 16
         zf.writestr(setup_info, setup_sh)
@@ -425,7 +460,9 @@ def build_linux_release_zip(version, dist_path, ext_zip_path, payload_b64):
         uninstall_info.external_attr = 0o755 << 16
         zf.writestr(uninstall_info, uninstall_sh)
 
-        zf.write(ext_zip_path, os.path.join(base_folder, 'FTODE-Extension.zip'))
+        zf.write(chrome_ext_path, os.path.join(base_folder, 'FTODE-Extension-Chrome.zip'))
+        zf.write(firefox_ext_path, os.path.join(base_folder, 'FTODE-Extension-Firefox.zip'))
+        zf.write(chrome_ext_path, os.path.join(base_folder, 'FTODE-Extension.zip'))
         zf.writestr(os.path.join(base_folder, 'Instructions.txt'), INSTRUCTIONS_LINUX_TEXT)
 
     for attempt in range(10):
@@ -459,40 +496,49 @@ def main():
     print("[*] Generating high-resolution FTODE Logo .ico (from logo512.png)...")
     generate_ftode_logo_ico(ICO_PATH)
 
-    # 2. Build Extension universal archive
-    print("\n[*] Packaging Extension into universal single file (FTODE-Extension.zip)...")
-    ext_name, ext_path, ext_count, ext_size = build_extension_archive(version, DIST_DIR)
-    print(f"    [v] {ext_name} ({ext_count} files, {format_size(ext_size)})")
+    # 2. Build Extension archives for Chrome/Chromium and Firefox
+    print("\n[*] Packaging Browser Extension archives...")
+    (
+        chrome_name, chrome_path, chrome_count, chrome_size,
+        firefox_name, firefox_path, firefox_count, firefox_size,
+        uni_name, uni_path, uni_size
+    ) = build_extension_archives(version, DIST_DIR)
+    print(f"    [v] Chrome / Opera / Edge: {chrome_name} ({chrome_count} files, {format_size(chrome_size)})")
+    print(f"    [v] Mozilla Firefox:       {firefox_name} ({firefox_count} files, {format_size(firefox_size)})")
 
     # 3. Generate native host payload
     payload_b64 = get_native_host_base64_payload()
 
     # 4. Build Windows Release ZIP
     print("\n[*] Packaging Windows Release ZIP...")
-    win_name, win_path, win_size = build_windows_release_zip(version, DIST_DIR, ext_path, payload_b64)
+    win_name, win_path, win_size = build_windows_release_zip(version, DIST_DIR, chrome_path, firefox_path, payload_b64)
     print(f"    [v] {win_name} ({format_size(win_size)})")
 
     # 5. Build Linux Release ZIP
     print("\n[*] Packaging Linux Release ZIP...")
-    linux_name, linux_path, linux_size = build_linux_release_zip(version, DIST_DIR, ext_path, payload_b64)
+    linux_name, linux_path, linux_size = build_linux_release_zip(version, DIST_DIR, chrome_path, firefox_path, payload_b64)
     print(f"    [v] {linux_name} ({format_size(linux_size)})")
 
     print("\n=====================================================")
-    print(f" [SUCCESS] 2 Standalone Release bundles created in: dist/")
+    print(f" [SUCCESS] Standalone Release bundles created in: dist/")
     print("=====================================================")
     print(f" 1. Windows Bundle: {win_name} ({format_size(win_size)})")
     print(f"    |-- FTODE Host Setup.bat")
     print(f"    |-- FTODE Host Uninstall.bat")
-    print(f"    |-- FTODE-Extension.zip")
+    print(f"    |-- FTODE-Extension-Chrome.zip   (Chrome / Edge / Opera / Brave)")
+    print(f"    |-- FTODE-Extension-Firefox.zip  (Firefox / Floorp / LibreWolf)")
     print(f"    |-- Instructions.txt")
     print(f"")
     print(f" 2. Linux Bundle:   {linux_name} ({format_size(linux_size)})")
     print(f"    |-- FTODE Host Setup.sh")
     print(f"    |-- FTODE Host Uninstall.sh")
-    print(f"    |-- FTODE-Extension.zip")
+    print(f"    |-- FTODE-Extension-Chrome.zip   (Chrome / Edge / Opera / Brave)")
+    print(f"    |-- FTODE-Extension-Firefox.zip  (Firefox / Floorp / LibreWolf)")
     print(f"    |-- Instructions.txt")
     print(f"")
-    print(f" 3. Universal Ext:  {ext_name} ({format_size(ext_size)})")
+    print(f" 3. Standalone Extensions:")
+    print(f"    |-- {chrome_name} ({format_size(chrome_size)})")
+    print(f"    |-- {firefox_name} ({format_size(firefox_size)})")
     print("=====================================================\n")
 
 
