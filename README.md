@@ -29,13 +29,20 @@ A simple browser extension + Python backend that lets you download video and aud
 ## ✨ Features
 
 - **1-Click Downloads:** Download video (MP4/WEBM/MKV) or music (MP3/FLAC/WAV) with a single click.
-- **Playlist & Batch Downloads:** Download entire playlists and albums with 1 click.
+- **Playlist & Batch Downloads:** Download entire playlists and albums in 1 click.
 - **Multi-Site Support:** Works seamlessly on YouTube, SoundCloud, Vimeo, Twitch, Reddit, and hundreds more.
 - **Zero Setup for Tools:** You don't need to manually install `yt-dlp` or `ffmpeg`. The setup script gets them for you automatically!
 - **Auto Stream Detection:** Detects videos playing on the page and direct stream links.
 - **Dark & Light Mode:** Looks clean and matches your style.
 - **Customizable:** Change download formats, quality (up to 8K), and choose where your files get saved.
 - **Live Progress:** Shows download speed, percentage, and ETA in the popup.
+
+### 🌐 Works Across Your Favorite Platforms
+Download from SoundCloud, Vimeo, Twitch, Reddit, and more:
+
+<p align="center">
+  <img src="assets/showcase-other-sites-download.gif" alt="SoundCloud and Multi-Site Showcase" width="750">
+</p>
 
 ---
 
@@ -78,29 +85,15 @@ It will connect the extension with Python and make sure `yt-dlp` and `ffmpeg` ar
 3. Click **Download MP4**, **Download MP3**, or **Download Playlist**.
 4. The files will be saved in your `Downloads/FTODE` folder!
 
-<details>
-<summary>🎵 <b>Showcase: 1-Click Audio & Music Download</b></summary>
-<br>
+#### 🎵 1-Click Audio & Music Download:
 <p align="center">
   <img src="assets/showcase-audio-download.gif" alt="Audio Download Showcase" width="750">
 </p>
-</details>
 
-<details>
-<summary>📋 <b>Showcase: Full Playlist & Album Downloads</b></summary>
-<br>
+#### 📋 Full Playlist & Batch Downloads:
 <p align="center">
   <img src="assets/showcase-playlist-download.gif" alt="Playlist Download Showcase" width="750">
 </p>
-</details>
-
-<details>
-<summary>🌐 <b>Showcase: Other Supported Websites (SoundCloud, etc.)</b></summary>
-<br>
-<p align="center">
-  <img src="assets/showcase-other-sites-download.gif" alt="SoundCloud Download Showcase" width="750">
-</p>
-</details>
 
 ---
 
