@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const audioFormatSelect = document.getElementById('audio-format');
   const audioQualitySelect = document.getElementById('audio-quality');
   const downloadFolderInput = document.getElementById('download-folder');
+  const downloadFolderHint = document.getElementById('download-folder-hint');
   const existingFileActionSelect = document.getElementById('existing-file-action');
   const enableDebugToggle = document.getElementById('enable-debug');
 
@@ -50,7 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (extensionIdVal) extensionIdVal.textContent = extId;
 
   const manifest = chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
-  const currentExtVersion = manifest?.version || '1.0.0';
+  const currentExtVersion = manifest?.version || '1.0.1';
   const footerVersionEl = document.getElementById('footer-version');
   if (footerVersionEl) footerVersionEl.textContent = `v${currentExtVersion}`;
 
@@ -202,6 +203,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /**
+   * Updates dynamic hint under download folder input based on whether it's absolute or relative
+   */
+  function updateFolderHint() {
+    if (!downloadFolderHint || !downloadFolderInput) return;
+    const val = downloadFolderInput.value.trim();
+    if (!val) {
+      downloadFolderHint.innerHTML = 'Enter a subfolder name (e.g. <code>FTODE</code>) or full path (e.g. <code>D:\\Downloads\\FTODE</code>).';
+      return;
+    }
+    const isAbs = /^[a-zA-Z]:[\\/]/.test(val) || val.startsWith('/') || val.startsWith('\\\\');
+    if (isAbs) {
+      downloadFolderHint.innerHTML = `Custom path: <code>${val}</code>`;
+    } else {
+      downloadFolderHint.innerHTML = `Subfolder: <code>Downloads/${val}</code> (inside your system Downloads folder).`;
+    }
+  }
+
+  /**
    * Load saved settings
    */
   async function loadSettings() {
@@ -217,6 +236,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         existingFileActionSelect.value = settings.existingFileAction || 'copy';
       }
       enableDebugToggle.checked = settings.enableDebug !== false;
+      updateFolderHint();
       try { localStorage.setItem('ftode_settings', JSON.stringify(settings)); } catch {}
     } catch (err) {
       console.error('[Options] Load settings error:', err);
@@ -240,6 +260,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       try { localStorage.setItem('ftode_settings', JSON.stringify(toSave)); } catch {}
       await chrome.storage.sync.set(toSave);
+      updateFolderHint();
       if (showToast) {
         showToastNotification('Settings saved successfully!');
       }
@@ -264,6 +285,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       existingFileActionSelect.value = DEFAULTS.existingFileAction;
     }
     enableDebugToggle.checked = DEFAULTS.enableDebug;
+    updateFolderHint();
 
     await chrome.storage.sync.set(DEFAULTS);
     showToastNotification('Reset to default settings');
@@ -503,6 +525,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (existingFileActionSelect) {
     existingFileActionSelect.addEventListener('change', () => saveSettings(false));
   }
+  downloadFolderInput.addEventListener('input', updateFolderHint);
   downloadFolderInput.addEventListener('change', () => saveSettings(false));
   enableDebugToggle.addEventListener('change', () => saveSettings(false));
 

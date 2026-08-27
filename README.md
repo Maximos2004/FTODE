@@ -92,7 +92,7 @@ Maxs-Downloader/
 #### ⚙️ Settings & Host Management (`options.html`)
 * **Interactive Header:** Live version badge, animated Ko-fi support button with playful wiggle animation, and Dark/Light mode toggle switch.
 * **Media Format & Quality Pickers:** Configure target video formats (`MP4`, `WEBM`, `MKV`, `MOV`, `AVI`, `FLV`, `GIF`), video resolutions (up to 8K), audio formats (`MP3`, `M4A`, `FLAC`, `WAV`, `OPUS`, `OGG`, `AAC`, `ALAC`), and bitrates (up to 320 kbps).
-* **Storage & Collision Handling:** Custom relative download folder name (inside `~/Downloads/`) and duplicate file actions (`Download Again (Copy)`, `Skip`, `Overwrite`).
+* **Storage & Collision Handling:** Custom download destination (subfolder in `Downloads/` or full custom path on any drive like `D:\Downloads\FTODE`) and duplicate file actions (`Download Again (Copy)`, `Skip`, `Overwrite`).
 * **Console Streaming Toggle:** Easily enable or disable inline terminal output in the popup.
 * **Native Host Diagnostics:** Live status bubble, connectivity tester, Extension ID copy tool, and detected tool versions.
 * **Self-Bootstrapping Engine Manager:** 1-Click "Check for Updates" button with an animated progress bar.
@@ -108,37 +108,25 @@ Maxs-Downloader/
 
 ---
 
-### Step 1: Load the Extension into Your Browser
-
-#### 🌐 For Chrome, Opera, Opera GX, Edge, Brave, Vivaldi:
-1. Open your browser and navigate to the extensions page:
-   - **Chrome:** `chrome://extensions/`
-   - **Opera / Opera GX:** `opera://extensions/`
-   - **Edge:** `edge://extensions/`
-   - **Brave:** `brave://extensions/`
-2. Turn ON **Developer mode** (toggle in top-right or top-left corner).
+### Step 1: Install Browser Extension
+1. Open your browser's extensions page (`chrome://extensions` in Chrome/Brave/Edge or `edge://extensions` in Edge).
+2. Enable **Developer mode** (toggle in the top right).
 3. Click **Load unpacked** (or *Load extension*) and select the `Maxs-Downloader/extension` folder.
-*(The extension automatically uses a permanent, fixed ID: `iabbelaamkcbkklcipbbkgegfenjhklc`).*
-
-#### 🦊 For Mozilla Firefox, Floorp, LibreWolf, Waterfox:
-1. In Firefox, navigate to: `about:debugging#/runtime/this-firefox`
-2. Click **"Load Temporary Add-on..."**
-3. Select the `Maxs-Downloader/extension/manifest.json` file.
+4. The **FTODE** icon will appear in your browser toolbar. Pin it for quick access!
 
 ---
 
-### Step 2: Run 1-Click Automatic Setup
+### Step 2: Register Local Python Native Host
 Double-click **`setup.bat`** in the root project folder (or run `install_host.bat` inside `native_host/`).
-
-*(This automatically registers the Native Host across Windows Registry for **Chrome, Opera, Edge, Brave, and Firefox** simultaneously AND bootstraps the latest `yt-dlp` and `FFmpeg` binaries into `native_host/bin/` if missing. Zero manual command-line configuration required!).*
+* *What this does:* Registers the Native Messaging manifest in the Windows Registry (`HKCU\Software\Google\Chrome\NativeMessagingHosts\com.ftode.host` and Firefox registry) pointing to the local host launcher.
 
 ---
 
-### Step 3: Test & Download!
-1. Open any media page (e.g., YouTube, SoundCloud, Vimeo, TikTok, direct MP4/MP3).
-2. Click the **FTODE** icon in your browser toolbar.
+### Step 3: Download Any Video or Music
+1. Browse to any supported video or music page (YouTube, Soundcloud, Vimeo, Twitch, Steam, etc.).
+2. Click the **FTODE** extension icon.
 3. Click **Download MP4** or **Download MP3**.
-4. Files are saved directly to `~/Downloads/FTODE/`!
+4. Files are saved directly to your selected download folder or custom path (default: `~/Downloads/FTODE/`)!
 
 ---
 
@@ -148,19 +136,19 @@ To package the project into a clean, branded release ZIP file for sharing with o
 
 1. Double-click **`build.bat`** (or run `python build.py`).
 2. The packager will create clean zip archives inside the **`dist/`** directory:
-   * **`FTODE-v1.0.0-Release.zip`**: Streamlined release bundle (~475 KB) containing exactly **4 items**:
-     * `FTODE Host Setup.exe` (1-Click installer for Host backend with embedded **FTODE Logo Icon**)
-     * `FTODE Host Uninstall.exe` (1-Click uninstaller for Host backend with embedded **FTODE Logo Icon**)
+   * **`FTODE-v1.0.1-Release.zip`**: Streamlined release bundle (~425 KB) containing exactly **4 items**:
+     * `FTODE Host Setup.bat` (1-Click self-contained installer — No SmartScreen warnings)
+     * `FTODE Host Uninstall.bat` (1-Click uninstaller — No SmartScreen warnings)
      * `FTODE-Extension.zip` (Universal single-file extension package for Chrome, Edge, Opera, and Firefox)
      * `Instructions.txt` (Clear 2-step setup & uninstall instructions)
-   * **`FTODE-Extension-v1.0.0.zip`**: Standalone extension archive ready for direct upload to the Chrome Web Store Developer Dashboard or Firefox AMO.
+   * **`FTODE-Extension-v1.0.1.zip`**: Standalone extension archive ready for direct upload to the Chrome Web Store Developer Dashboard or Firefox AMO.
 
 ---
 
 ## 🗑️ Uninstallation
 
 1. **Remove Extension from Browser:** Right-click the FTODE icon in your browser toolbar and click **"Remove from Chrome"** / **"Remove from Edge"** / **"Remove Extension"**.
-2. **Remove Native Host Backend:** Double-click **`FTODE Host Uninstall.exe`**, which cleanly deregisters all browser registry keys and removes the local backend directory.
+2. **Remove Native Host Backend:** Double-click **`FTODE Host Uninstall.bat`**, which cleanly deregisters all browser registry keys and removes the local backend directory.
 
 ---
 

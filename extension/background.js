@@ -90,6 +90,47 @@ function getOrCreateTabState(tabId) {
 }
 
 /**
+ * Normalize media URL by stripping fragments and byte-range / chunk query params
+ */
+function normalizeMediaUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    const u = new URL(url);
+    u.hash = '';
+    const stripParams = ['range', 'bytes', 'start', 'end', 'chunk', 'segment', 'ts', 'offset', 'byte_offset', '_'];
+    stripParams.forEach(p => u.searchParams.delete(p));
+    return u.href;
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Centralized media deduplication helper
+ */
+function getDeduplicatedMediaItems(items) {
+  if (!Array.isArray(items) || items.length === 0) return [];
+  const result = [];
+  const seenUrls = new Set();
+  const seenNormalized = new Set();
+
+  items.forEach(item => {
+    if (!item || !item.url) return;
+    const directUrl = item.url.trim();
+    const normUrl = normalizeMediaUrl(directUrl);
+    const key = `${item.type || 'video'}_${normUrl}`;
+
+    if (!seenUrls.has(directUrl) && !seenNormalized.has(key)) {
+      seenUrls.add(directUrl);
+      seenNormalized.add(key);
+      result.push(item);
+    }
+  });
+
+  return result;
+}
+
+/**
  * Update Chrome extension badge for a tab based on detected media count
  */
 function updateTabBadge(tabId) {
@@ -111,11 +152,12 @@ function updateTabBadge(tabId) {
     return;
   }
 
-  const hasVideo = state.items.some(i => i.type === 'video');
-  const hasAudio = state.items.some(i => i.type === 'audio');
-  const count = state.items.length;
+  const uniqueItems = getDeduplicatedMediaItems(state.items);
+  const count = uniqueItems.length;
 
   if (count > 0) {
+    const hasVideo = uniqueItems.some(i => i.type === 'video');
+    const hasAudio = uniqueItems.some(i => i.type === 'audio');
     chrome.action.setBadgeText({ text: String(count), tabId }).catch(() => {});
     if (hasVideo && !state.isAudioOnly) {
       chrome.action.setBadgeBackgroundColor({ color: '#6bd29d', tabId }).catch(() => {});
@@ -413,8 +455,10 @@ chrome.webRequest.onHeadersReceived.addListener(
       return;
     }
 
-    // Check for duplicates
-    const exists = state.items.some(item => item.url === url);
+    const normUrl = normalizeMediaUrl(url);
+
+    // Check for duplicates (matching exact URL or normalized base URL)
+    const exists = state.items.some(item => item.url === url || normalizeMediaUrl(item.url) === normUrl);
     if (!exists) {
       // Clean filename from URL for display title
       let itemTitle = 'Network Media Stream';
@@ -439,6 +483,7 @@ chrome.webRequest.onHeadersReceived.addListener(
         source: 'network'
       });
 
+      state.items = getDeduplicatedMediaItems(state.items);
       state.lastUpdated = Date.now();
       updateTabBadge(details.tabId);
     }
@@ -527,27 +572,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           state.isPlaylist = payload.isPlaylist !== undefined ? payload.isPlaylist : isPlaylistUrl(state.pageUrl);
           state.hasMediaTags = payload.hasMediaTags;
 
-          // Fresh top-level scan: replace DOM items to prevent stale blob accumulation from refresh
+          // Fresh top-level scan: replace DOM items and merge with existing network items cleanly
           if (Array.isArray(payload.items)) {
             const networkItems = state.items.filter(i => i.source === 'network');
             const newDomItems = payload.items.map(item => ({ ...item, source: 'dom' }));
-
-            const merged = [...newDomItems];
-            networkItems.forEach(netItem => {
-              if (!merged.some(m => m.url === netItem.url)) {
-                merged.push(netItem);
-              }
-            });
-            state.items = merged;
+            state.items = getDeduplicatedMediaItems([...newDomItems, ...networkItems]);
           }
         } else {
           // Sub-frame scan: append items uniquely
           if (Array.isArray(payload.items)) {
-            payload.items.forEach(newItem => {
-              if (!state.items.some(i => i.url === newItem.url)) {
-                state.items.push({ ...newItem, source: 'dom' });
-              }
-            });
+            const subItems = payload.items.map(item => ({ ...item, source: 'dom' }));
+            state.items = getDeduplicatedMediaItems([...state.items, ...subItems]);
           }
         }
 
@@ -652,6 +687,10 @@ async function handleGetPopupState(requestedTabId) {
       currentJob.speed = '';
       currentJob.eta = '';
     }
+  }
+
+  if (tabState && tabState.items) {
+    tabState.items = getDeduplicatedMediaItems(tabState.items);
   }
 
   const settings = await chrome.storage.sync.get(DEFAULT_SETTINGS);

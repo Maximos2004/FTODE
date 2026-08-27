@@ -490,6 +490,22 @@
   }
 
   /**
+   * Normalize media URL by stripping fragments and byte-range query params
+   */
+  function normalizeMediaUrl(url) {
+    if (!url || typeof url !== 'string') return '';
+    try {
+      const u = new URL(url, window.location.href);
+      u.hash = '';
+      const stripParams = ['range', 'bytes', 'start', 'end', 'chunk', 'segment', 'ts', 'offset', 'byte_offset', '_'];
+      stripParams.forEach(p => u.searchParams.delete(p));
+      return u.href;
+    } catch {
+      return url;
+    }
+  }
+
+  /**
    * Inspect all video & audio elements in current document context
    */
   function scanDomMedia() {
@@ -511,6 +527,7 @@
 
     const mediaItems = [];
     const seenUrls = new Set();
+    const seenNormalized = new Set();
     const isStreamSite = isStreamingDomain(window.location.href);
     const isPlaylist = isTopFrame ? isPlaylistPage(window.location.href) : false;
     let playlistTitle = null;
@@ -543,23 +560,54 @@
 
     videos.forEach((video, index) => {
       const srcList = [];
+      const elemSeen = new Set();
 
-      if (video.currentSrc) srcList.push({ src: video.currentSrc, type: 'video/currentSrc' });
-      if (video.src && video.src !== video.currentSrc) srcList.push({ src: video.src, type: 'video/src' });
-
-      // Check <source> tags
+      // Collect source tags first to get best declared MIME types
       const sources = video.querySelectorAll('source');
       sources.forEach(source => {
-        const src = source.getAttribute('src') || source.getAttribute('data-src');
-        const type = source.getAttribute('type') || 'video/*';
-        if (src) srcList.push({ src: resolveUrl(src), type });
+        const rawSrc = source.getAttribute('src') || source.getAttribute('data-src');
+        const type = source.getAttribute('type') || 'video/mp4';
+        if (rawSrc) {
+          const resolved = resolveUrl(rawSrc);
+          const norm = normalizeMediaUrl(resolved);
+          if (!elemSeen.has(norm)) {
+            elemSeen.add(norm);
+            srcList.push({ src: resolved, type });
+          }
+        }
       });
+
+      // If video has currentSrc or src not yet covered
+      const currentSrc = video.currentSrc ? resolveUrl(video.currentSrc) : null;
+      if (currentSrc) {
+        const norm = normalizeMediaUrl(currentSrc);
+        if (!elemSeen.has(norm)) {
+          elemSeen.add(norm);
+          srcList.unshift({ src: currentSrc, type: 'video/mp4' });
+        }
+      }
+
+      if (video.src && video.src !== video.currentSrc) {
+        const resolved = resolveUrl(video.src);
+        const norm = normalizeMediaUrl(resolved);
+        if (!elemSeen.has(norm)) {
+          elemSeen.add(norm);
+          srcList.push({ src: resolved, type: 'video/mp4' });
+        }
+      }
 
       // Check common data attributes for player configs
       const dataSrcAttrs = ['data-src', 'data-video-url', 'data-mp4', 'data-hls-url', 'data-m3u8'];
       dataSrcAttrs.forEach(attr => {
         const val = video.getAttribute(attr);
-        if (val) srcList.push({ src: resolveUrl(val), type: 'video/data-attr' });
+        if (val) {
+          const resolved = resolveUrl(val);
+          const norm = normalizeMediaUrl(resolved);
+          if (!elemSeen.has(norm)) {
+            elemSeen.add(norm);
+            srcList.push({ src: resolved, type: 'video/mp4' });
+          }
+        }
       });
 
       // If video has no src attribute yet, register the stream context
@@ -569,8 +617,12 @@
 
       // Filter and register
       srcList.forEach(item => {
-        if (!item.src || seenUrls.has(item.src)) return;
+        if (!item.src) return;
+        const norm = normalizeMediaUrl(item.src);
+        const dedupeKey = `video_${norm}`;
+        if (seenUrls.has(item.src) || seenNormalized.has(dedupeKey)) return;
         seenUrls.add(item.src);
+        seenNormalized.add(dedupeKey);
 
         const isBlob = item.src.startsWith('blob:');
         const isManifest = item.src.includes('.m3u8') || item.src.includes('.mpd');
@@ -613,20 +665,47 @@
 
     audios.forEach((audio, index) => {
       const srcList = [];
-
-      if (audio.currentSrc) srcList.push({ src: audio.currentSrc, type: 'audio/currentSrc' });
-      if (audio.src && audio.src !== audio.currentSrc) srcList.push({ src: audio.src, type: 'audio/src' });
+      const elemSeen = new Set();
 
       const sources = audio.querySelectorAll('source');
       sources.forEach(source => {
-        const src = source.getAttribute('src') || source.getAttribute('data-src');
-        const type = source.getAttribute('type') || 'audio/*';
-        if (src) srcList.push({ src: resolveUrl(src), type });
+        const rawSrc = source.getAttribute('src') || source.getAttribute('data-src');
+        const type = source.getAttribute('type') || 'audio/mp3';
+        if (rawSrc) {
+          const resolved = resolveUrl(rawSrc);
+          const norm = normalizeMediaUrl(resolved);
+          if (!elemSeen.has(norm)) {
+            elemSeen.add(norm);
+            srcList.push({ src: resolved, type });
+          }
+        }
       });
 
+      if (audio.currentSrc) {
+        const resolved = resolveUrl(audio.currentSrc);
+        const norm = normalizeMediaUrl(resolved);
+        if (!elemSeen.has(norm)) {
+          elemSeen.add(norm);
+          srcList.unshift({ src: resolved, type: 'audio/mp3' });
+        }
+      }
+
+      if (audio.src && audio.src !== audio.currentSrc) {
+        const resolved = resolveUrl(audio.src);
+        const norm = normalizeMediaUrl(resolved);
+        if (!elemSeen.has(norm)) {
+          elemSeen.add(norm);
+          srcList.push({ src: resolved, type: 'audio/mp3' });
+        }
+      }
+
       srcList.forEach(item => {
-        if (!item.src || seenUrls.has(item.src)) return;
+        if (!item.src) return;
+        const norm = normalizeMediaUrl(item.src);
+        const dedupeKey = `audio_${norm}`;
+        if (seenUrls.has(item.src) || seenNormalized.has(dedupeKey)) return;
         seenUrls.add(item.src);
+        seenNormalized.add(dedupeKey);
 
         const itemLabel = audios.length === 1 ? pageTitle : `${pageTitle} (Audio #${index + 1})`;
 

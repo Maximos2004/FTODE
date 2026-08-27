@@ -236,6 +236,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function normalizeMediaUrl(url) {
+    if (!url || typeof url !== 'string') return '';
+    try {
+      const u = new URL(url);
+      u.hash = '';
+      const stripParams = ['range', 'bytes', 'start', 'end', 'chunk', 'segment', 'ts', 'offset', 'byte_offset', '_'];
+      stripParams.forEach(p => u.searchParams.delete(p));
+      return u.href;
+    } catch {
+      return url;
+    }
+  }
+
+  function getDeduplicatedMediaItems(items) {
+    if (!Array.isArray(items) || items.length === 0) return [];
+    const result = [];
+    const seenUrls = new Set();
+    const seenNormalized = new Set();
+
+    items.forEach(item => {
+      if (!item || !item.url) return;
+      const directUrl = item.url.trim();
+      const normUrl = normalizeMediaUrl(directUrl);
+      const key = `${item.type || 'video'}_${normUrl}`;
+
+      if (!seenUrls.has(directUrl) && !seenNormalized.has(key)) {
+        seenUrls.add(directUrl);
+        seenNormalized.add(key);
+        result.push(item);
+      }
+    });
+
+    return result;
+  }
+
   /**
    * Initialize popup
    */
@@ -277,7 +312,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
 
-      // Also trigger content script scan for immediate live update
+      // Also trigger content script scan for immediate live update without losing background network items
       if (currentTab && currentTab.id) {
         chrome.tabs.sendMessage(currentTab.id, { type: 'SCAN_MEDIA_DOM' }, (res) => {
           if (!chrome.runtime.lastError && res) {
@@ -290,7 +325,9 @@ document.addEventListener('DOMContentLoaded', async () => {
               tabMediaState.hasMediaTags = res.hasMediaTags;
               tabMediaState.thumbnail = res.thumbnail || tabMediaState.thumbnail;
               if (Array.isArray(res.items)) {
-                tabMediaState.items = res.items;
+                const existingNetworkItems = (tabMediaState.items || []).filter(i => i.source === 'network');
+                const domItems = res.items.map(i => ({ ...i, source: 'dom' }));
+                tabMediaState.items = getDeduplicatedMediaItems([...domItems, ...existingNetworkItems]);
               }
             }
             renderUI();
@@ -483,11 +520,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 2. Detection Status
     const isStream = isHome ? false : (tabMediaState ? tabMediaState.isStreamDomain : false);
-    const items = (!isHome && tabMediaState && tabMediaState.items) ? tabMediaState.items : [];
-    const hasVideo = !isHome && !isAudioDomain && (isStream || items.some(i => i.type === 'video'));
-    const hasAudio = !isHome && (isAudioDomain || isStream || items.some(i => i.type === 'audio'));
+    const rawItems = (!isHome && tabMediaState && tabMediaState.items) ? tabMediaState.items : [];
+    const uniqueItems = getDeduplicatedMediaItems(rawItems);
+    const hasVideo = !isHome && !isAudioDomain && (isStream || uniqueItems.some(i => i.type === 'video'));
+    const hasAudio = !isHome && (isAudioDomain || isStream || uniqueItems.some(i => i.type === 'audio'));
     const hasAnyMedia = !isHome && (isPlaylist || hasVideo || hasAudio);
-    const totalCount = isStream ? Math.max(1, items.length) : items.length;
+    const totalCount = isStream ? Math.max(1, uniqueItems.length) : uniqueItems.length;
 
     // Display title & domain
     let displayTitle = hasAnyMedia ? 'Media Stream' : 'No media detected';
@@ -568,16 +606,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 3. Streams Accordion (Deduplicated)
-    const uniqueItems = [];
-    const seenMap = new Set();
-    items.forEach(item => {
-      const key = `${item.type}_${item.url}`;
-      if (!seenMap.has(key)) {
-        seenMap.add(key);
-        uniqueItems.push(item);
-      }
-    });
-
     if (hasAnyMedia && uniqueItems.length === 0) {
       uniqueItems.push({
         type: 'video',

@@ -443,7 +443,7 @@ svg circle {
    ========================================================================== */
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px 18px;
 }
 
@@ -455,7 +455,7 @@ svg circle {
 
 .storage-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 18px;
 }
 
@@ -469,6 +469,8 @@ svg circle {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
+  width: 100%;
 }
 
 .form-label {
@@ -483,6 +485,7 @@ svg circle {
 .custom-select,
 .custom-input {
   width: 100%;
+  min-width: 0;
   height: 40px;
   background: var(--bg-input);
   border: 1px solid var(--border-subtle);
@@ -514,6 +517,8 @@ svg circle {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   overflow: hidden;
+  min-width: 0;
+  width: 100%;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, var(--theme-transition);
 }
 
@@ -536,7 +541,12 @@ svg circle {
 .input-with-prefix .custom-input {
   border: none;
   background: transparent;
-  padding-left: 0;
+  padding: 0 12px;
+  min-width: 0;
+}
+
+.input-prefix + .custom-input {
+  padding-left: 0 !important;
 }
 
 .input-with-prefix .custom-input:focus {
@@ -547,7 +557,16 @@ svg circle {
   font-size: 11px;
   color: var(--text-muted);
   line-height: 1.35;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   transition: var(--theme-transition);
+}
+
+.field-hint code {
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  display: inline;
 }
 
 /* ==========================================================================
@@ -828,6 +847,9 @@ code {
   padding: 3px 8px;
   border-radius: 5px;
   border: 1px solid var(--border-subtle);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
   transition: var(--theme-transition);
 }
 

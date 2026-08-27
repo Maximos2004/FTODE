@@ -530,7 +530,7 @@ def handle_ping(payload):
 
     send_message({
         'status': 'pong',
-        'version': '1.0.0',
+        'version': '1.0.1',
         'python_version': sys.version.split()[0],
         'ytdlp_available': ytdlp_bin is not None,
         'ytdlp_path': ytdlp_bin,
@@ -538,7 +538,8 @@ def handle_ping(payload):
         'ffmpeg_available': ffmpeg_bin is not None,
         'ffmpeg_path': ffmpeg_bin,
         'ffmpeg_version': get_version(ffmpeg_bin) if ffmpeg_bin else None,
-        'bin_dir': get_bin_dir()
+        'bin_dir': get_bin_dir(),
+        'default_downloads': get_system_downloads_dir()
     })
 
 
@@ -693,6 +694,125 @@ def is_homepage_or_feed(url):
         return False
 
 
+def get_system_downloads_dir():
+    """
+    Determines the user's actual Downloads folder location across all platforms.
+    On Windows, handles redirected/custom Downloads locations (e.g. D:\\Downloads)
+    using SHGetKnownFolderPath (FOLDERID_Downloads) and Windows Registry.
+    """
+    if sys.platform == 'win32':
+        # 1. Try Windows Shell API (SHGetKnownFolderPath with FOLDERID_Downloads)
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class GUID(ctypes.Structure):
+                _fields_ = [
+                    ("Data1", wintypes.DWORD),
+                    ("Data2", wintypes.WORD),
+                    ("Data3", wintypes.WORD),
+                    ("Data4", wintypes.BYTE * 8)
+                ]
+
+            FOLDERID_Downloads = GUID(
+                0x374DE290, 0x123F, 0x4565,
+                (wintypes.BYTE * 8)(0x91, 0x64, 0x39, 0xC4, 0x92, 0x5E, 0x46, 0x7B)
+            )
+            SHGetKnownFolderPath = ctypes.windll.shell32.SHGetKnownFolderPath
+            SHGetKnownFolderPath.argtypes = [
+                ctypes.POINTER(GUID), wintypes.DWORD, wintypes.HANDLE, ctypes.POINTER(ctypes.c_wchar_p)
+            ]
+            SHGetKnownFolderPath.restype = ctypes.c_long
+
+            path_ptr = ctypes.c_wchar_p()
+            res = SHGetKnownFolderPath(ctypes.byref(FOLDERID_Downloads), 0, None, ctypes.byref(path_ptr))
+            if res == 0 and path_ptr.value:
+                resolved = path_ptr.value
+                ctypes.windll.ole32.CoTaskMemFree(path_ptr)
+                if os.path.isdir(resolved):
+                    return os.path.abspath(resolved)
+        except Exception as e:
+            log_debug(f"[FOLDER] SHGetKnownFolderPath failed: {e}")
+
+        # 2. Try Windows Registry (User Shell Folders)
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders") as key:
+                for val_name in ("{374DE290-123F-4565-9164-39C4925E467B}", "Downloads"):
+                    try:
+                        val, _ = winreg.QueryValueEx(key, val_name)
+                        if val:
+                            expanded = os.path.abspath(os.path.expandvars(str(val)))
+                            if os.path.isdir(expanded):
+                                return expanded
+                    except Exception:
+                        pass
+        except Exception as e:
+            log_debug(f"[FOLDER] Registry check failed: {e}")
+
+        # 3. Try Windows Registry (Shell Folders)
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders") as key:
+                val, _ = winreg.QueryValueEx(key, "{374DE290-123F-4565-9164-39C4925E467B}")
+                if val:
+                    expanded = os.path.abspath(os.path.expandvars(str(val)))
+                    if os.path.isdir(expanded):
+                        return expanded
+        except Exception:
+            pass
+
+    elif sys.platform.startswith('linux'):
+        try:
+            res = subprocess.run(['xdg-user-dir', 'DOWNLOAD'], capture_output=True, text=True, timeout=2)
+            if res.returncode == 0 and res.stdout.strip():
+                p = res.stdout.strip()
+                if os.path.isdir(p):
+                    return os.path.abspath(p)
+        except Exception:
+            pass
+
+    # Standard fallback: ~/Downloads
+    user_home = os.path.expanduser('~')
+    return os.path.abspath(os.path.join(user_home, 'Downloads'))
+
+
+def resolve_download_dir(raw_folder_or_path):
+    """
+    Resolves the target download directory based on user settings.
+    Supports:
+      1. Full custom absolute paths on any drive (e.g. 'D:\\Downloads\\FTODE', 'D:/Videos', 'E:\\Media')
+      2. Relative subfolder names (e.g. 'FTODE', 'Music/FTODE') resolved inside the system Downloads folder.
+    Automatically creates the destination folder if it does not exist.
+    """
+    default_base = get_system_downloads_dir()
+
+    if not raw_folder_or_path or not str(raw_folder_or_path).strip():
+        target = os.path.join(default_base, 'FTODE')
+    else:
+        cleaned = str(raw_folder_or_path).strip().strip('"').strip("'")
+        cleaned = os.path.expanduser(os.path.expandvars(cleaned))
+
+        # Check if cleaned is an absolute path (Windows drive like D:\ or C:/ or UNC \\ or POSIX /)
+        is_abs = os.path.isabs(cleaned) or bool(re.match(r'^[a-zA-Z]:[\\/]', cleaned)) or cleaned.startswith('\\\\')
+
+        if is_abs:
+            target = os.path.abspath(cleaned)
+        else:
+            # Relative folder name -> place inside system Downloads
+            parts = [p for p in re.split(r'[\\/]+', cleaned) if p and p not in ('.', '..')]
+            if not parts:
+                parts = ['FTODE']
+            target = os.path.abspath(os.path.join(default_base, *parts))
+
+    try:
+        os.makedirs(target, exist_ok=True)
+    except Exception as e:
+        log_debug(f"[FOLDER] Failed to create folder {target}: {e}")
+        target = os.path.abspath(os.path.join(default_base, 'FTODE'))
+        os.makedirs(target, exist_ok=True)
+
+    return target
+
+
 def sanitize_filename(name):
     """
     Sanitize string for Windows filename compatibility.
@@ -758,10 +878,8 @@ def handle_download(payload):
         media_type = 'audio'
     else:
         media_type = 'video'
+
     raw_folder = str(payload.get('downloadFolder', 'FTODE') or 'FTODE').strip()
-    safe_folder = sanitize_filename(raw_folder)
-    if not safe_folder or safe_folder in ('.', '..'):
-        safe_folder = 'FTODE'
     video_quality = payload.get('videoQuality', 'best')
     audio_quality = payload.get('audioQuality', 'best')
     existing_file_action = str(payload.get('existingFileAction', 'copy')).lower()
@@ -769,17 +887,9 @@ def handle_download(payload):
     custom_ffmpeg = payload.get('customFfmpegPath')
     title_hint = payload.get('title')
 
-    # Resolve output directory strictly inside user's Downloads directory (Path Traversal Protection)
-    user_home = os.path.expanduser('~')
-    base_downloads = os.path.abspath(os.path.join(user_home, 'Downloads'))
-    output_dir = os.path.abspath(os.path.join(base_downloads, safe_folder))
-    if not output_dir.startswith(base_downloads):
-        output_dir = os.path.join(base_downloads, 'FTODE')
-    try:
-        os.makedirs(output_dir, exist_ok=True)
-    except Exception as e:
-        send_message({'status': 'error', 'message': f"Failed to create download folder: {e}"})
-        return
+    # Resolve output directory (supports full absolute paths across drives D:, E:, etc. and relative subfolders)
+    output_dir = resolve_download_dir(raw_folder)
+    send_message({'status': 'log', 'line': f"[INFO] Destination folder: {output_dir}"})
 
     # Check if yt-dlp or FFmpeg are missing -> auto-bootstrap only if missing
     ytdlp_bin = find_executable('yt-dlp', custom_ytdlp)
@@ -876,14 +986,14 @@ def handle_download(payload):
 
             if candidate_idx == 0:
                 output_template = os.path.join(output_dir, safe_pl_title, '%(playlist_index,autonumber)02d - %(title).150s.%(ext)s')
-                send_message({'status': 'log', 'line': f"[INFO] Playlist mode active. Saving to ~/Downloads/{safe_folder}/{safe_pl_title}/"})
+                send_message({'status': 'log', 'line': f"[INFO] Playlist mode active. Saving to {output_dir}/{safe_pl_title}/"})
             else:
                 folder_dest_name = f"{safe_pl_title} ({candidate_idx})"
                 output_template = os.path.join(output_dir, folder_dest_name, '%(playlist_index,autonumber)02d - %(title).150s.%(ext)s')
                 send_message({'status': 'log', 'line': f"[INFO] Playlist '{safe_pl_title}' with {target_ext} already exists. Creating new playlist folder '{folder_dest_name}'."})
         else:
             output_template = os.path.join(output_dir, safe_pl_title, '%(playlist_index,autonumber)02d - %(title).150s.%(ext)s')
-            send_message({'status': 'log', 'line': f"[INFO] Playlist mode active. Saving to ~/Downloads/{safe_folder}/{safe_pl_title}/"})
+            send_message({'status': 'log', 'line': f"[INFO] Playlist mode active. Saving to {output_dir}/{safe_pl_title}/"})
     else:
         playlist_args = ['--no-playlist']
         if existing_file_action == 'copy':
@@ -1479,8 +1589,7 @@ def handle_cancel(message=None):
 
     target_dir = ctx.get('output_dir') if ctx else None
     if not target_dir:
-        user_home = os.path.expanduser('~')
-        target_dir = os.path.abspath(os.path.join(user_home, 'Downloads', 'FTODE'))
+        target_dir = resolve_download_dir('FTODE')
 
     if target_dir and os.path.isdir(target_dir):
         log_debug(f"[CANCEL] Cleaning up residue for output_dir: {target_dir}")
