@@ -113,6 +113,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         existingFileActionSelect.value = settings.existingFileAction || 'copy';
       }
       enableDebugToggle.checked = settings.enableDebug !== false;
+      try { localStorage.setItem('ftode_settings', JSON.stringify(settings)); } catch {}
     } catch (err) {
       console.error('[Options] Load settings error:', err);
     }
@@ -133,6 +134,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     try {
+      try { localStorage.setItem('ftode_settings', JSON.stringify(toSave)); } catch {}
       await chrome.storage.sync.set(toSave);
       if (showToast) {
         showToastNotification('Settings saved successfully!');
@@ -195,10 +197,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   /**
    * Test Native Host connectivity & retrieve versions
    */
-  async function testHost() {
-    hostBubble.className = 'status-bubble';
-    hostLabel.textContent = 'Testing Host Connection...';
-    btnTestHost.disabled = true;
+  async function testHost(showToast = false) {
+    if (showToast) {
+      hostBubble.className = 'status-bubble';
+      hostLabel.textContent = 'Testing Host Connection...';
+      btnTestHost.disabled = true;
+    }
 
     try {
       const response = await chrome.runtime.sendMessage({ type: 'TEST_HOST_CONNECTION' });
@@ -213,6 +217,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         diagFfmpeg.textContent = data.ffmpeg_version ? `v${data.ffmpeg_version}` : (data.ffmpeg_available ? 'Available' : 'Not Installed');
         diagFfmpeg.style.color = data.ffmpeg_available ? '#6bd29d' : '#f87171';
+
+        try {
+          localStorage.setItem('ftode_host_info', JSON.stringify({
+            connected: true,
+            ytdlp_version: data.ytdlp_version,
+            ytdlp_available: data.ytdlp_available,
+            ffmpeg_version: data.ffmpeg_version,
+            ffmpeg_available: data.ffmpeg_available
+          }));
+        } catch {}
 
         // Update button state dynamically based on tool availability
         if (data.ytdlp_available && data.ffmpeg_available) {
@@ -231,7 +245,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         }
 
-        showToastNotification('Native host connected successfully!');
+        if (showToast) {
+          showToastNotification('Native host connected successfully!');
+        }
       } else {
         hostBubble.className = 'status-bubble offline';
         hostLabel.textContent = 'Disconnected / Not Registered';
@@ -240,15 +256,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         diagYtdlp.style.color = '#f87171';
         diagFfmpeg.style.color = '#f87171';
 
-        const errMsg = response ? response.error : 'Unknown host error';
-        showToastNotification('Native host offline. See setup instructions.', true);
+        try {
+          localStorage.setItem('ftode_host_info', JSON.stringify({ connected: false }));
+        } catch {}
+
+        if (showToast) {
+          const errMsg = response ? response.error : 'Unknown host error';
+          showToastNotification('Native host offline. See setup instructions.', true);
+        }
       }
     } catch (err) {
       hostBubble.className = 'status-bubble offline';
       hostLabel.textContent = 'Connection Failed';
       diagYtdlp.textContent = 'Error';
       diagFfmpeg.textContent = 'Error';
-      showToastNotification('Host check failed: ' + err.message, true);
+      if (showToast) {
+        showToastNotification('Host check failed: ' + err.message, true);
+      }
     } finally {
       btnTestHost.disabled = false;
     }
@@ -257,7 +281,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Event Listeners
   btnSaveSettings.addEventListener('click', () => saveSettings(true));
   btnResetSettings.addEventListener('click', resetSettings);
-  btnTestHost.addEventListener('click', testHost);
+  btnTestHost.addEventListener('click', () => testHost(true));
 
   async function handleToolAction() {
     btnBootstrapTools.disabled = true;
@@ -279,7 +303,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           setTimeout(() => {
             bootstrapProgressBox.classList.add('hidden');
             btnBootstrapTools.disabled = false;
-            testHost();
+            testHost(false);
           }, 1500);
         } else {
           const err = response ? response.error : 'Installation failed';
@@ -308,7 +332,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           setTimeout(() => {
             bootstrapProgressBox.classList.add('hidden');
             btnBootstrapTools.disabled = false;
-            testHost();
+            testHost(false);
           }, 2000);
         } else {
           const err = response ? response.error : 'Update check failed';
@@ -351,8 +375,68 @@ document.addEventListener('DOMContentLoaded', async () => {
   downloadFolderInput.addEventListener('change', () => saveSettings(false));
   enableDebugToggle.addEventListener('change', () => saveSettings(false));
 
-  // Initialize Theme and Settings
-  await loadTheme();
-  await loadSettings();
-  testHost();
+  // Synchronously pre-populate from localStorage cache if available for instant baseline
+  try {
+    const cachedSettings = localStorage.getItem('ftode_settings');
+    if (cachedSettings) {
+      const s = JSON.parse(cachedSettings);
+      if (s.videoFormat) videoFormatSelect.value = s.videoFormat;
+      if (s.videoQuality) videoQualitySelect.value = s.videoQuality;
+      if (s.audioFormat) audioFormatSelect.value = s.audioFormat;
+      if (s.audioQuality) audioQualitySelect.value = s.audioQuality;
+      if (s.downloadFolder) downloadFolderInput.value = s.downloadFolder;
+      if (s.existingFileAction && existingFileActionSelect) existingFileActionSelect.value = s.existingFileAction;
+      if (s.enableDebug !== undefined) enableDebugToggle.checked = s.enableDebug;
+    }
+    const cachedTheme = localStorage.getItem('ftode_theme');
+    if (cachedTheme === 'light') {
+      document.documentElement.classList.add('light-theme');
+      document.body.classList.add('light-theme');
+      if (toggleTheme) toggleTheme.checked = true;
+    } else if (cachedTheme === 'dark') {
+      document.documentElement.classList.remove('light-theme');
+      document.body.classList.remove('light-theme');
+      if (toggleTheme) toggleTheme.checked = false;
+    }
+    const cachedHost = localStorage.getItem('ftode_host_info');
+    if (cachedHost) {
+      const h = JSON.parse(cachedHost);
+      if (h.connected) {
+        hostBubble.className = 'status-bubble connected';
+        hostLabel.textContent = 'Connected & Operational';
+        if (h.ytdlp_version) {
+          diagYtdlp.textContent = `v${h.ytdlp_version}`;
+          diagYtdlp.style.color = '#6bd29d';
+        }
+        if (h.ffmpeg_version) {
+          diagFfmpeg.textContent = `v${h.ffmpeg_version}`;
+          diagFfmpeg.style.color = '#6bd29d';
+        }
+      }
+    }
+  } catch {}
+
+  // Initialize Theme and Settings asynchronously from chrome.storage
+  try {
+    await Promise.all([loadTheme(), loadSettings()]);
+  } catch (err) {
+    console.error('[Options] Init error:', err);
+  } finally {
+    // Reveal GUI in fully initialized state, then remove preload after painted
+    document.body.classList.add('ready');
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        document.documentElement.classList.remove('preload');
+      }, 50);
+    });
+  }
+
+  // Safety fallback to guarantee GUI is visible
+  setTimeout(() => {
+    document.body.classList.add('ready');
+    document.documentElement.classList.remove('preload');
+  }, 200);
+
+  // Background host test (silent, no popup toast on startup)
+  testHost(false);
 });

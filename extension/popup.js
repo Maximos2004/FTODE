@@ -82,6 +82,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     downloadFolder: 'FTODE',
     enableDebug: true
   };
+
+  try {
+    const cachedSettings = localStorage.getItem('ftode_settings');
+    if (cachedSettings) {
+      currentSettings = { ...currentSettings, ...JSON.parse(cachedSettings) };
+    }
+    const cachedTheme = localStorage.getItem('ftode_theme');
+    if (cachedTheme === 'light') {
+      document.documentElement.classList.add('light-theme');
+      document.body.classList.add('light-theme');
+    } else if (cachedTheme === 'dark') {
+      document.documentElement.classList.remove('light-theme');
+      document.body.classList.remove('light-theme');
+    }
+  } catch {}
+
   let isTerminalVisible = false;
   let currentJob = null;
   let isHostConnected = false;
@@ -239,6 +255,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (response) {
         tabMediaState = response.tabState;
         currentSettings = response.settings || currentSettings;
+        try { localStorage.setItem('ftode_settings', JSON.stringify(currentSettings)); } catch {}
         currentJob = response.currentJob;
 
         // If the popup was just opened and the previous download was already complete/errored/cancelled,
@@ -286,9 +303,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Render initial UI
       renderUI();
+
+      // Reveal GUI in fully loaded state without jumping/flashing
+      document.body.classList.add('ready');
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          document.documentElement.classList.remove('preload');
+        }, 50);
+      });
     } catch (err) {
       console.error('[Popup] Init error:', err);
       renderUI();
+      document.body.classList.add('ready');
+      document.documentElement.classList.remove('preload');
     }
   }
 
@@ -1034,7 +1061,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Safety timeout fallback to guarantee GUI is revealed
+  setTimeout(() => {
+    document.documentElement.classList.remove('preload');
+    document.body.classList.add('ready');
+  }, 150);
+
   // Start initialization
-  applyTheme();
-  init();
+  await applyTheme();
+  await init();
 });
