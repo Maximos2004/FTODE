@@ -29,6 +29,7 @@ A simple browser extension + Python backend that lets you download video and aud
 
 ### What you need:
 - **Windows 10/11** or **Linux**
+-  A Browser (dah xP)
 - **Python 3.8+** installed:
   - **Windows:** Download from [python.org](https://www.python.org/downloads/) *(Make sure to check "Add Python to PATH")*
   - **Linux:** Comes pre-installed on most distros, or install with `sudo apt install python3 ffmpeg` / `sudo pacman -S python ffmpeg`
