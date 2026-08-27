@@ -178,7 +178,8 @@ const KNOWN_STREAMING_DOMAINS = [
   'youtube.com', 'youtu.be', 'vimeo.com', 'soundcloud.com', 'twitch.tv',
   'tiktok.com', 'twitter.com', 'x.com', 'reddit.com', 'dailymotion.com',
   'bilibili.com', 'instagram.com', 'facebook.com', 'fb.watch',
-  'bandcamp.com', 'rumble.com', 'kick.com', 'odysee.com', 'mixcloud.com'
+  'bandcamp.com', 'rumble.com', 'kick.com', 'odysee.com', 'mixcloud.com',
+  'streamable.com', 'bitchute.com', 'threads.net'
 ];
 
 const KNOWN_AUDIO_DOMAINS = [
@@ -548,7 +549,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const isTop = (sender.frameId === 0) || (payload.isTopFrame === true);
 
         if (isTop) {
-          state.pageUrl = payload.pageUrl || sender.tab.url || state.pageUrl;
+          state.pageUrl = payload.pageUrl || (sender.tab && sender.tab.url) || state.pageUrl;
           const isHome = isHomePageOrFeed(state.pageUrl);
 
           if (isHome) {
@@ -565,12 +566,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             return true;
           }
 
-          state.pageTitle = payload.pageTitle || sender.tab.title || state.pageTitle;
+          state.pageTitle = payload.pageTitle || (sender.tab && sender.tab.title) || state.pageTitle;
           state.playlistTitle = payload.playlistTitle || state.playlistTitle || null;
-          state.isStreamDomain = payload.isStreamDomain !== undefined ? payload.isStreamDomain : isStreamingUrl(state.pageUrl);
-          state.isAudioOnly = payload.isAudioOnly !== undefined ? payload.isAudioOnly : isAudioOnlyUrl(state.pageUrl);
+          state.isStreamDomain = payload.isStreamDomain || isStreamingUrl(state.pageUrl);
+          state.isAudioOnly = payload.isAudioOnly || isAudioOnlyUrl(state.pageUrl);
           state.isPlaylist = payload.isPlaylist !== undefined ? payload.isPlaylist : isPlaylistUrl(state.pageUrl);
           state.hasMediaTags = payload.hasMediaTags;
+          state.thumbnail = payload.thumbnail || state.thumbnail;
 
           // Fresh top-level scan: replace DOM items and merge with existing network items cleanly
           if (Array.isArray(payload.items)) {
@@ -579,8 +581,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             state.items = getDeduplicatedMediaItems([...newDomItems, ...networkItems]);
           }
         } else {
-          // Sub-frame scan: append items uniquely
-          if (Array.isArray(payload.items)) {
+          // Sub-frame scan: only append items uniquely if items were actually found
+          if (Array.isArray(payload.items) && payload.items.length > 0) {
             const subItems = payload.items.map(item => ({ ...item, source: 'dom' }));
             state.items = getDeduplicatedMediaItems([...state.items, ...subItems]);
           }
@@ -672,7 +674,11 @@ async function handleGetPopupState(requestedTabId) {
     tabState = getOrCreateTabState(activeTab.id);
     if (!tabState.pageUrl) tabState.pageUrl = activeTab.url || '';
     if (!tabState.pageTitle) tabState.pageTitle = activeTab.title || '';
-    tabState.isStreamDomain = isStreamingUrl(tabState.pageUrl);
+    if (!isHomePageOrFeed(tabState.pageUrl)) {
+      tabState.isStreamDomain = tabState.isStreamDomain || isStreamingUrl(tabState.pageUrl);
+      tabState.isAudioOnly = tabState.isAudioOnly || isAudioOnlyUrl(tabState.pageUrl);
+      tabState.isPlaylist = tabState.isPlaylist !== undefined ? tabState.isPlaylist : isPlaylistUrl(tabState.pageUrl);
+    }
   }
 
   // If a finished download job is from another tab or page, reset it to idle immediately

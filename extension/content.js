@@ -334,6 +334,8 @@
   function cleanTitleString(text) {
     if (!text || typeof text !== 'string') return '';
     let clean = text.trim();
+    // Remove browser notification prefix e.g. (1) or (10+) or ▶
+    clean = clean.replace(/^\(\d+\+?\)\s*/, '').replace(/^[▶►]\s*/, '').trim();
     // Remove SponsorBlock injected categories
     clean = clean.replace(/^(?:\[?\s*(?:Unpaid\/Self Promotion|Self Promotion|Sponsor(?:ed)?|Interaction(?: Reminder)?|Intro|Outro|Preview|Filler|Highlight|Music: Non-Music Section|Exclusive Access|Patreon)\s*\]?)\s*[-:]?\s*/i, '');
     // Clean platform suffixes
@@ -371,8 +373,10 @@
       '#title h1 yt-formatted-string, ' +
       'ytd-watch-metadata #title h1, ' +
       'ytd-watch-metadata h1.ytd-watch-metadata, ' +
+      'ytd-watch-metadata h1, ' +
       '#above-the-fold #title h1, ' +
-      'h1.title.style-scope.ytd-video-primary-info-renderer'
+      'h1.title.style-scope.ytd-video-primary-info-renderer, ' +
+      'h1.ytd-video-primary-info-renderer'
     );
     if (ytVideoTitle) {
       const clean = extractCleanTitleFromNode(ytVideoTitle);
@@ -418,11 +422,15 @@
       const u = new URL(url);
       if (u.hostname.includes('youtube.com')) {
         if (u.searchParams.has('v')) return u.searchParams.get('v');
-        const parts = u.pathname.split('/');
+        const parts = u.pathname.split('/').filter(Boolean);
         const shortsIdx = parts.indexOf('shorts');
         if (shortsIdx !== -1 && parts[shortsIdx + 1]) return parts[shortsIdx + 1];
         const embedIdx = parts.indexOf('embed');
         if (embedIdx !== -1 && parts[embedIdx + 1]) return parts[embedIdx + 1];
+        const liveIdx = parts.indexOf('live');
+        if (liveIdx !== -1 && parts[liveIdx + 1]) return parts[liveIdx + 1];
+        const vIdx = parts.indexOf('v');
+        if (vIdx !== -1 && parts[vIdx + 1]) return parts[vIdx + 1];
       } else if (u.hostname.includes('youtu.be')) {
         return u.pathname.replace(/^\//, '').split('/')[0].split('?')[0];
       }
@@ -750,6 +758,13 @@
    */
   function broadcastScanResults() {
     const payload = scanDomMedia();
+
+    // If running inside a subframe (e.g. Google Sign-In / ad / widget iframes) and no media was found,
+    // do not broadcast empty scans to background to prevent polluting tab state.
+    if (!payload.isTopFrame && (!payload.items || payload.items.length === 0)) {
+      return;
+    }
+
     const hash = JSON.stringify({
       url: payload.pageUrl,
       title: payload.pageTitle,
@@ -858,8 +873,13 @@
   // 4. Listen for explicit scan messages from background/popup
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message && message.type === 'SCAN_MEDIA_DOM') {
+      const isTop = window === window.top;
       const data = scanDomMedia();
-      sendResponse(data);
+      if (!isTop && (!data.items || data.items.length === 0)) {
+        sendResponse({ isTopFrame: false, items: [], hasMediaTags: false });
+      } else {
+        sendResponse(data);
+      }
     }
     return false;
   });

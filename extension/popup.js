@@ -271,6 +271,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     return result;
   }
 
+  const STREAMING_DOMAINS = [
+    'youtube.com',
+    'youtu.be',
+    'vimeo.com',
+    'soundcloud.com',
+    'twitch.tv',
+    'tiktok.com',
+    'twitter.com',
+    'x.com',
+    'reddit.com',
+    'dailymotion.com',
+    'bilibili.com',
+    'instagram.com',
+    'facebook.com',
+    'fb.watch',
+    'bandcamp.com',
+    'rumble.com',
+    'kick.com',
+    'odysee.com',
+    'mixcloud.com',
+    'streamable.com',
+    'bitchute.com',
+    'threads.net'
+  ];
+
+  function isStreamingUrl(url) {
+    if (!url) return false;
+    if (isHomePageOrFeed(url)) return false;
+    try {
+      const hostname = new URL(url).hostname.toLowerCase();
+      return STREAMING_DOMAINS.some(domain => hostname === domain || hostname.endsWith('.' + domain));
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Initialize popup
    */
@@ -310,24 +346,45 @@ document.addEventListener('DOMContentLoaded', async () => {
           tabMediaState.pageTitle = 'No media detected';
           tabMediaState.playlistTitle = null;
         }
+      } else if (currentTab && currentTab.url && isStreamingUrl(currentTab.url)) {
+        if (!tabMediaState) {
+          tabMediaState = {
+            pageUrl: currentTab.url,
+            pageTitle: (currentTab.title && currentTab.title.toLowerCase() !== 'youtube') ? currentTab.title : 'Media Stream',
+            playlistTitle: null,
+            isStreamDomain: true,
+            isAudioOnly: isAudioOnlyUrl(currentTab.url),
+            isPlaylist: isPlaylistPageUrl(currentTab.url),
+            hasMediaTags: false,
+            items: []
+          };
+        } else {
+          tabMediaState.isStreamDomain = true;
+          if (!tabMediaState.pageUrl) tabMediaState.pageUrl = currentTab.url;
+        }
       }
 
-      // Also trigger content script scan for immediate live update without losing background network items
+      // Also trigger content script scan for immediate live update from top frame specifically
       if (currentTab && currentTab.id) {
-        chrome.tabs.sendMessage(currentTab.id, { type: 'SCAN_MEDIA_DOM' }, (res) => {
+        chrome.tabs.sendMessage(currentTab.id, { type: 'SCAN_MEDIA_DOM' }, { frameId: 0 }, (res) => {
           if (!chrome.runtime.lastError && res) {
             if (tabMediaState) {
-              tabMediaState.pageUrl = res.pageUrl || tabMediaState.pageUrl;
-              tabMediaState.pageTitle = res.pageTitle || tabMediaState.pageTitle;
-              tabMediaState.playlistTitle = res.playlistTitle || null;
-              tabMediaState.isPlaylist = res.isPlaylist !== undefined ? res.isPlaylist : tabMediaState.isPlaylist;
-              tabMediaState.isStreamDomain = res.isStreamDomain !== undefined ? res.isStreamDomain : tabMediaState.isStreamDomain;
-              tabMediaState.hasMediaTags = res.hasMediaTags;
-              tabMediaState.thumbnail = res.thumbnail || tabMediaState.thumbnail;
-              if (Array.isArray(res.items)) {
-                const existingNetworkItems = (tabMediaState.items || []).filter(i => i.source === 'network');
+              if (res.isTopFrame !== false) {
+                tabMediaState.pageUrl = res.pageUrl || tabMediaState.pageUrl;
+                tabMediaState.pageTitle = res.pageTitle || tabMediaState.pageTitle;
+                tabMediaState.playlistTitle = res.playlistTitle || null;
+                tabMediaState.isPlaylist = res.isPlaylist !== undefined ? res.isPlaylist : tabMediaState.isPlaylist;
+                tabMediaState.isStreamDomain = res.isStreamDomain !== undefined ? res.isStreamDomain : isStreamingUrl(tabMediaState.pageUrl);
+                tabMediaState.hasMediaTags = res.hasMediaTags;
+                tabMediaState.thumbnail = res.thumbnail || tabMediaState.thumbnail;
+                if (Array.isArray(res.items)) {
+                  const existingNetworkItems = (tabMediaState.items || []).filter(i => i.source === 'network');
+                  const domItems = res.items.map(i => ({ ...i, source: 'dom' }));
+                  tabMediaState.items = getDeduplicatedMediaItems([...domItems, ...existingNetworkItems]);
+                }
+              } else if (Array.isArray(res.items) && res.items.length > 0) {
                 const domItems = res.items.map(i => ({ ...i, source: 'dom' }));
-                tabMediaState.items = getDeduplicatedMediaItems([...domItems, ...existingNetworkItems]);
+                tabMediaState.items = getDeduplicatedMediaItems([...(tabMediaState.items || []), ...domItems]);
               }
             }
             renderUI();
@@ -441,11 +498,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (u.searchParams.has('v')) {
           return `https://i.ytimg.com/vi/${u.searchParams.get('v')}/mqdefault.jpg`;
         }
-        const parts = u.pathname.split('/');
+        const parts = u.pathname.split('/').filter(Boolean);
         const shortsIdx = parts.indexOf('shorts');
         if (shortsIdx !== -1 && parts[shortsIdx + 1]) {
           return `https://i.ytimg.com/vi/${parts[shortsIdx + 1]}/mqdefault.jpg`;
         }
+        const embedIdx = parts.indexOf('embed');
+        if (embedIdx !== -1 && parts[embedIdx + 1]) {
+          return `https://i.ytimg.com/vi/${parts[embedIdx + 1]}/mqdefault.jpg`;
+        }
+        const liveIdx = parts.indexOf('live');
+        if (liveIdx !== -1 && parts[liveIdx + 1]) {
+          return `https://i.ytimg.com/vi/${parts[liveIdx + 1]}/mqdefault.jpg`;
+        }
+        const vIdx = parts.indexOf('v');
+        if (vIdx !== -1 && parts[vIdx + 1]) {
+          return `https://i.ytimg.com/vi/${parts[vIdx + 1]}/mqdefault.jpg`;
+        }
+      } else if (host.includes('youtu.be')) {
+        const id = u.pathname.replace(/^\//, '').split('/')[0].split('?')[0];
+        if (id) return `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
       }
       return null;
     } catch {
@@ -519,7 +591,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 2. Detection Status
-    const isStream = isHome ? false : (tabMediaState ? tabMediaState.isStreamDomain : false);
+    const isStream = isHome ? false : (
+      (tabMediaState && tabMediaState.isStreamDomain) ||
+      isStreamingUrl(activeUrl)
+    );
     const rawItems = (!isHome && tabMediaState && tabMediaState.items) ? tabMediaState.items : [];
     const uniqueItems = getDeduplicatedMediaItems(rawItems);
     const hasVideo = !isHome && !isAudioDomain && (isStream || uniqueItems.some(i => i.type === 'video'));
@@ -542,11 +617,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         displayTitle = `(from playlist ${tabMediaState.playlistTitle})`;
       } else if (tabMediaState && tabMediaState.pageTitle && tabMediaState.pageTitle !== 'No media detected' && tabMediaState.pageTitle !== 'Media Stream') {
         displayTitle = tabMediaState.pageTitle;
-      } else if (currentTab && currentTab.title && currentTab.title !== 'YouTube') {
+      } else if (currentTab && currentTab.title && currentTab.title.toLowerCase() !== 'youtube') {
         displayTitle = currentTab.title;
       } else if (tabMediaState && tabMediaState.pageTitle) {
         displayTitle = tabMediaState.pageTitle;
       }
+      displayTitle = displayTitle.replace(/^\(\d+\+?\)\s*/, '').replace(/^[▶►]\s*/, '').trim();
       displayTitle = displayTitle.replace(/^(?:\[?\s*(?:Unpaid\/Self Promotion|Self Promotion|Sponsor(?:ed)?|Interaction(?: Reminder)?|Intro|Outro|Preview|Filler|Highlight|Music: Non-Music Section|Exclusive Access|Patreon)\s*\]?)\s*[-:]?\s*/i, '');
       displayTitle = displayTitle.replace(/ - YouTube$/i, '').replace(/ \| SoundCloud$/i, '').replace(/ - Vimeo$/i, '').trim();
     }

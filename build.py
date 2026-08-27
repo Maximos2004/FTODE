@@ -283,6 +283,17 @@ title FTODE - 1-Click Host Setup
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
+REM ---------------------------------------------------------
+REM Check if Python is installed and accessible
+REM ---------------------------------------------------------
+python -c "import sys; assert sys.version_info >= (3, 7)" >nul 2>&1
+if errorlevel 1 (
+    where py >nul 2>&1
+    if errorlevel 1 (
+        goto :python_missing
+    )
+)
+
 echo ===================================================
 echo   FTODE - 1-Click Host Setup (Windows v{version})
 echo   Finally that online downloader extension
@@ -304,6 +315,51 @@ if exist "%TARGET_DIR%\\install_host.bat" (
     echo.
     pause
 )
+exit /b %ERRORLEVEL%
+
+:python_missing
+color 0C 2>nul
+cls
+echo ==============================================================================
+echo.
+echo   #####  #   # ##### #   #  ###  #   #
+echo   #   #   # #    #   #   # #   # ##  #
+echo   #####    #     #   ##### #   # # # #
+echo   #        #     #   #   # #   # #  ##
+echo   #        #     #   #   #  ###  #   #
+echo.
+echo   #   #  ###  #####   ### #   #  ### #####   ###  #     #     ##### ####
+echo   ##  # #   #   #      #  ##  # #      #    #   # #     #     #     #   #
+echo   # # # #   #   #      #  # # #  ###   #    ##### #     #     ###   #   #
+echo   #  ## #   #   #      #  #  ##     #  #    #   # #     #     #     #   #
+echo   #   #  ###    #     ### #   #  ###   #    #   # ##### ##### ##### ####
+echo.
+echo ==============================================================================
+echo  [X] FATAL ERROR: PYTHON IS NOT INSTALLED OR NOT IN PATH
+echo ==============================================================================
+echo.
+echo  FTODE requires Python 3.8 or newer to run the background downloader engine.
+echo.
+echo  ==========================================================================
+echo  HOW TO INSTALL PYTHON:
+echo  ==========================================================================
+echo  1. Download Python from: https://www.python.org/downloads/
+echo     (or install Python from the Microsoft Store)
+echo.
+echo  2. CRITICAL STEP DURING INSTALLATION:
+echo     [IMPORTANT] Make sure to CHECK the box at the bottom of the installer:
+echo         [X] Add python.exe to PATH
+echo.
+echo  3. After Python finishes installing, run this Setup again.
+echo  ==========================================================================
+echo.
+set /p "OPEN_PY=Would you like to open the Python download page now? (Y/N): "
+if /i "!OPEN_PY!"=="Y" (
+    start https://www.python.org/downloads/
+)
+echo.
+pause
+exit /b 1
 """
 
 
@@ -351,6 +407,24 @@ pause
 def get_setup_sh_content(version, payload_b64):
     return f"""#!/usr/bin/env bash
 set -e
+
+# Verify python3 is installed
+if ! command -v python3 >/dev/null 2>&1; then
+    echo -e "\\033[1;31m"
+    echo "=============================================================================="
+    echo " [X] FATAL ERROR: python3 is not installed or not in PATH!"
+    echo "=============================================================================="
+    echo " FTODE requires Python 3.8+ to download media and run the backend host."
+    echo ""
+    echo " Please install Python 3 and FFmpeg using your package manager:"
+    echo "   Ubuntu / Debian / Mint:  sudo apt install python3 ffmpeg"
+    echo "   Arch / Manjaro:         sudo pacman -S python ffmpeg"
+    echo "   Fedora / RHEL:          sudo dnf install python3 ffmpeg"
+    echo "   openSUSE:               sudo zypper install python3 ffmpeg"
+    echo "=============================================================================="
+    echo -e "\\033[0m"
+    exit 1
+fi
 
 echo "==================================================="
 echo "  FTODE - 1-Click Host Setup (Linux v{version})"
