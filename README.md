@@ -47,6 +47,8 @@ Maxs-Downloader/
 │       ├── yt-dlp.exe
 │       ├── ffmpeg.exe
 │       └── ffprobe.exe
+├── build.bat                            # 1-Click release packager launcher
+├── build.py                             # Automated release zip packaging tool
 └── setup.bat                            # 1-Click root setup launcher
 ```
 
@@ -137,6 +139,28 @@ Double-click **`setup.bat`** in the root project folder (or run `install_host.ba
 2. Click the **FTODE** icon in your browser toolbar.
 3. Click **Download MP4** or **Download MP3**.
 4. Files are saved directly to `~/Downloads/FTODE/`!
+
+---
+
+## 📦 Building & Packaging Releases
+
+To package the project into a clean, branded release ZIP file for sharing with others:
+
+1. Double-click **`build.bat`** (or run `python build.py`).
+2. The packager will create clean zip archives inside the **`dist/`** directory:
+   * **`FTODE-v1.0.0-Release.zip`**: Streamlined release bundle (~475 KB) containing exactly **4 items**:
+     * `FTODE Host Setup.exe` (1-Click installer for Host backend with embedded **FTODE Logo Icon**)
+     * `FTODE Host Uninstall.exe` (1-Click uninstaller for Host backend with embedded **FTODE Logo Icon**)
+     * `FTODE-Extension.zip` (Universal single-file extension package for Chrome, Edge, Opera, and Firefox)
+     * `Instructions.txt` (Clear 2-step setup & uninstall instructions)
+   * **`FTODE-Extension-v1.0.0.zip`**: Standalone extension archive ready for direct upload to the Chrome Web Store Developer Dashboard or Firefox AMO.
+
+---
+
+## 🗑️ Uninstallation
+
+1. **Remove Extension from Browser:** Right-click the FTODE icon in your browser toolbar and click **"Remove from Chrome"** / **"Remove from Edge"** / **"Remove Extension"**.
+2. **Remove Native Host Backend:** Double-click **`FTODE Host Uninstall.exe`**, which cleanly deregisters all browser registry keys and removes the local backend directory.
 
 ---
 

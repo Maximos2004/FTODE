@@ -1556,10 +1556,42 @@ def install_registry(extension_id=None):
     print(f"    Gecko Extension ID: ftode@maxakt.local")
 
 
+def uninstall_registry():
+    """
+    Unregisters the Native Messaging Host from Windows Registry across Chrome, Edge, Brave, Opera, and Firefox.
+    """
+    if sys.platform != 'win32':
+        print("[*] Uninstallation is only supported on Windows.")
+        return
+
+    reg_keys = [
+        (r"Software\Google\Chrome\NativeMessagingHosts\com.ftode.host", "Google Chrome"),
+        (r"Software\Microsoft\Edge\NativeMessagingHosts\com.ftode.host", "Microsoft Edge"),
+        (r"Software\Chromium\NativeMessagingHosts\com.ftode.host", "Chromium / Opera / Brave"),
+        (r"Software\Mozilla\NativeMessagingHosts\com.ftode.host", "Mozilla Firefox")
+    ]
+
+    print("[*] Removing FTODE Native Host from Windows Registry...")
+    for reg_key_path, browser_name in reg_keys:
+        try:
+            winreg.DeleteKey(winreg.HKEY_CURRENT_USER, reg_key_path)
+            print(f"[v] Successfully removed registry key for {browser_name}!")
+        except FileNotFoundError:
+            print(f"[-] Registry key already clean for {browser_name}.")
+        except Exception as e:
+            print(f"[x] Could not delete registry key for {browser_name}: {e}")
+
+    print("\n[v] FTODE Native Host unregistration complete.")
+
+
 def main():
     if len(sys.argv) > 1 and sys.argv[1] in ('--install', '-i', 'install'):
         ext_id = sys.argv[2] if len(sys.argv) > 2 else None
         install_registry(ext_id)
+        return
+
+    if len(sys.argv) > 1 and sys.argv[1] in ('--uninstall', '-u', 'uninstall'):
+        uninstall_registry()
         return
 
     if len(sys.argv) > 1 and sys.argv[1] in ('--bootstrap', '-b', 'bootstrap'):

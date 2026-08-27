@@ -36,3 +36,15 @@ Desktop.ini
 *.tmp
 *.bak
 cookies.txt
+
+# 5. Build & Distribution Artifacts
+dist/
+release/
+*.zip
+*.crx
+*.xpi
+app.ico
+Setup.exe
+Uninstall.exe
+
+
