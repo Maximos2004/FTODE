@@ -23,6 +23,8 @@ A simple browser extension + Python backend that lets you download video and aud
 ## ✨ Features
 
 - **1-Click Downloads:** Download video (MP4/WEBM/MKV) or music (MP3/FLAC/WAV) with a single click.
+- **Playlist Downloads:** Download entire playlists with a single click.
+- **Multi-Site Support:** Works seamlessly on YouTube, SoundCloud, Vimeo, Twitch, Reddit, and hundreds more.
 - **Zero Setup for Tools:** You don't need to manually install `yt-dlp` or `ffmpeg`. The setup script gets them for you automatically!
 - **Auto Stream Detection:** Detects videos playing on the page and direct stream links.
 - **Dark & Light Mode:** Looks clean and matches your style.
@@ -67,14 +69,20 @@ It will connect the extension with Python and make sure `yt-dlp` and `ffmpeg` ar
 ### Step 3: Download Stuff!
 1. Go to any video or music page (YouTube, Vimeo, SoundCloud, etc.).
 2. Click the **FTODE** icon in your toolbar.
-3. Click **Download MP4** or **Download MP3**.
-4. The file will be saved in your `Downloads/FTODE` folder!
+3. Click **Download MP4**, **Download MP3**, or **Download Playlist**.
+4. The files will be saved in your `Downloads/FTODE` folder!
 
-#### 🎬 Video Download:
+#### 🎬 1-Click Video Download:
 ![Video Download Showcase](assets/showcase-video-download.gif)
 
-#### 🎵 Audio Download:
+#### 🎵 1-Click Audio Download:
 ![Audio Download Showcase](assets/showcase-audio-download.gif)
+
+#### 📋 Full Playlist Download:
+![Playlist Download Showcase](assets/showcase-playlist-download.gif)
+
+#### 🌐 Multi-Site Support (SoundCloud & More):
+![SoundCloud Download Showcase](assets/showcase-other-sites-download.gif)
 
 ---
 
