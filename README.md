@@ -101,6 +101,7 @@ If you like this project, feel free to support me :> :
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/F6V82112T7)
 
 - **Made by:** MaxAkt
+- **AI Disclosure:** This project was developed with the help of AI coding assistance.
 - **Powered by:**
   - [yt-dlp](https://github.com/yt-dlp/yt-dlp) — Media downloader
   - [FFmpeg](https://ffmpeg.org) — Audio/Video converter
