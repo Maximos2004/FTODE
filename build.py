@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 """
 Finally that online downloader extension (FTODE) - Build & Release Packaging Tool
-Creates a clean, branded release package containing:
-1. FTODE Host Setup.bat (1-Click Installer - installs Native Host to %LOCALAPPDATA%\\FTODE)
-2. FTODE Host Uninstall.bat (1-Click Uninstaller - cleans registry & removes host files)
-3. FTODE-Extension.zip (Universal single-file extension package for Chrome/Edge/Opera/Firefox)
-4. _backend\\ (Native Host backend files & engine bootstrapper)
-5. Instructions.txt (Clear 2-step setup & uninstall instructions)
+Creates clean, branded release packages:
+1. FTODE-Extension-v{version}.zip (Universal browser extension)
+2. FTODE-v{version}-Windows.zip   (Self-contained 1-Click Windows release bundle)
+3. FTODE-v{version}-Linux.zip     (Self-contained 1-Click Linux release bundle)
 """
 
 import os
@@ -44,9 +42,9 @@ EXCLUDE_PATTERNS = {
     '.DS_Store'
 }
 
-INSTRUCTIONS_TEXT = """====================================================================
+INSTRUCTIONS_WINDOWS_TEXT = """====================================================================
   Finally that online downloader extension (FTODE)
-  Quick Setup & Uninstall Instructions
+  Quick Setup & Uninstall Instructions (Windows)
 ====================================================================
 
 ========================
@@ -61,7 +59,7 @@ STEP 1: Run Setup (Do this once)
    your browsers.
 3. When you see "Setup Complete!", press any key to close.
 
-* Note: Make sure Python 3.7+ is installed (from python.org or the
+* Note: Make sure Python 3.8+ is installed (from python.org or the
   Microsoft Store) with "Add Python to PATH" enabled.
 
 
@@ -94,6 +92,59 @@ STEP 2: Add Extension to Your Browser
 2. Remove Native Host:
    - Double-click "FTODE Host Uninstall.bat" in this folder.
    - It will automatically clean all registry keys and remove backend files.
+====================================================================
+"""
+
+INSTRUCTIONS_LINUX_TEXT = """====================================================================
+  Finally that online downloader extension (FTODE)
+  Quick Setup & Uninstall Instructions (Linux)
+====================================================================
+
+========================
+>>> HOW TO INSTALL <<<
+========================
+
+STEP 1: Run Setup (Do this once)
+--------------------------------------------------------------------
+1. Open a terminal in this folder and run:
+   bash "FTODE Host Setup.sh"
+   (or make executable: chmod +x "FTODE Host Setup.sh" && ./"FTODE Host Setup.sh")
+
+2. The setup will automatically install the background downloader
+   engine into ~/.local/share/FTODE/ and register it across your browsers.
+
+* Note: Make sure Python 3.8+ is installed. You can also install FFmpeg:
+  - Ubuntu/Debian/Mint:  sudo apt install python3 ffmpeg
+  - Arch/Manjaro:        sudo pacman -S python ffmpeg
+  - Fedora:              sudo dnf install python3 ffmpeg
+
+
+STEP 2: Add Extension to Your Browser
+--------------------------------------------------------------------
+>>> For Google Chrome, Chromium, Brave, Edge, Opera, Vivaldi:
+1. Open your browser and go to your extensions manager:
+   - Chrome / Chromium / Brave: chrome://extensions
+   - Microsoft Edge:            edge://extensions
+   - Opera:                     opera://extensions
+2. Turn ON "Developer mode" (toggle switch in top-right corner).
+3. Extract "FTODE-Extension.zip" and click "Load unpacked" (or drag & drop the zip).
+4. Pin the FTODE icon to your toolbar.
+
+>>> For Mozilla Firefox / Floorp / LibreWolf:
+1. Open Firefox and go to:  about:debugging#/runtime/this-firefox
+2. Click "Load Temporary Add-on...".
+3. Select the "FTODE-Extension.zip" file.
+
+
+==========================
+>>> HOW TO UNINSTALL <<<
+==========================
+
+1. Remove from Browser:
+   - Right-click the FTODE icon in your browser toolbar and click Remove.
+
+2. Remove Native Host:
+   - Open a terminal and run: bash "FTODE Host Uninstall.sh"
 ====================================================================
 """
 
@@ -143,15 +194,13 @@ def generate_ftode_logo_ico(output_path):
                 break
 
         if not png_path:
-            print("[!] Warning: Logo PNG not found.")
             return False
 
         img = Image.open(png_path)
         sizes = [(16,16), (24,24), (32,32), (48,48), (64,64), (128,128), (256,256)]
         img.save(output_path, sizes=sizes)
         return True
-    except Exception as e:
-        print(f"[!] Warning: Could not generate .ico: {e}")
+    except Exception:
         return False
 
 
@@ -185,7 +234,7 @@ def get_native_host_base64_payload():
             for file in files:
                 if should_exclude(file):
                     continue
-                if file.lower().endswith('.exe'):
+                if file.lower().endswith(('.exe', '.tar.xz', '.zip')):
                     continue
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, NATIVE_HOST_DIR)
@@ -201,7 +250,7 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 echo ===================================================
-echo   FTODE - 1-Click Host Setup (v{version})
+echo   FTODE - 1-Click Host Setup (Windows v{version})
 echo   Finally that online downloader extension
 echo ===================================================
 echo.
@@ -230,7 +279,7 @@ title FTODE - 1-Click Host Uninstaller
 setlocal enabledelayedexpansion
 
 echo ===================================================
-echo   FTODE - 1-Click Host Uninstaller (v{version})
+echo   FTODE - 1-Click Host Uninstaller (Windows v{version})
 echo   Finally that online downloader extension
 echo ===================================================
 echo.
@@ -265,37 +314,83 @@ pause
 """
 
 
-def build_clean_release_zip(version, dist_path, ext_zip_path):
-    """
-    Builds the clean 4-item release ZIP:
-    1. FTODE Host Setup.bat (Self-contained 1-Click installer)
-    2. FTODE Host Uninstall.bat (1-Click uninstaller)
-    3. FTODE-Extension.zip (Universal extension package)
-    4. Instructions.txt (Clear 2-step setup & uninstall guide)
-    """
-    release_zip_name = f"FTODE-v{version}-Release.zip"
-    release_zip_path = os.path.join(dist_path, release_zip_name)
-    base_folder = f"FTODE-v{version}"
+def get_setup_sh_content(version, payload_b64):
+    return f"""#!/usr/bin/env bash
+set -e
 
-    payload_b64 = get_native_host_base64_payload()
+echo "==================================================="
+echo "  FTODE - 1-Click Host Setup (Linux v{version})"
+echo "  Finally that online downloader extension"
+echo "==================================================="
+echo ""
+
+TARGET_DIR="$HOME/.local/share/FTODE"
+mkdir -p "$TARGET_DIR"
+
+echo "[*] Installing FTODE Host backend to $TARGET_DIR..."
+
+python3 -c "import base64, io, zipfile, os; b64='{payload_b64}'; raw=base64.b64decode(b64); z=zipfile.ZipFile(io.BytesIO(raw)); z.extractall(os.path.expanduser('~/.local/share/FTODE'))"
+
+chmod +x "$TARGET_DIR/host.py" "$TARGET_DIR/run_host.sh" 2>/dev/null || true
+
+if [ -f "$TARGET_DIR/install_host.sh" ]; then
+    chmod +x "$TARGET_DIR/install_host.sh"
+    bash "$TARGET_DIR/install_host.sh"
+else
+    python3 "$TARGET_DIR/host.py" --install
+    python3 "$TARGET_DIR/host.py" --bootstrap
+fi
+"""
+
+
+def get_uninstall_sh_content(version):
+    return f"""#!/usr/bin/env bash
+echo "==================================================="
+echo "  FTODE - 1-Click Host Uninstaller (Linux v{version})"
+echo "  Finally that online downloader extension"
+echo "==================================================="
+echo ""
+
+TARGET_DIR="$HOME/.local/share/FTODE"
+
+echo "[*] Removing FTODE Native Messaging manifests..."
+if [ -f "$TARGET_DIR/host.py" ]; then
+    python3 "$TARGET_DIR/host.py" --uninstall
+fi
+
+if [ -d "$TARGET_DIR" ]; then
+    echo "[*] Removing installed backend files from $TARGET_DIR..."
+    rm -rf "$TARGET_DIR"
+fi
+
+echo ""
+echo "==================================================="
+echo "    FTODE Native Host Uninstalled Successfully!"
+echo "==================================================="
+echo ""
+echo "Final Step:"
+echo "Right-click the FTODE icon in your browser toolbar"
+echo "and click \\"Remove from Chrome\\" / \\"Remove from Firefox\\"."
+echo ""
+"""
+
+
+def build_windows_release_zip(version, dist_path, ext_zip_path, payload_b64):
+    """Builds the clean Windows release bundle."""
+    release_zip_name = f"FTODE-v{version}-Windows.zip"
+    release_zip_path = os.path.join(dist_path, release_zip_name)
+    base_folder = f"FTODE-v{version}-Windows"
+
     setup_bat = get_setup_bat_content(version, payload_b64)
     uninstall_bat = get_uninstall_bat_content(version)
 
-    temp_zip = os.path.join(dist_path, f"temp_release_{os.getpid()}.zip")
+    temp_zip = os.path.join(dist_path, f"temp_win_{os.getpid()}.zip")
     with zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
-        # 1. FTODE Host Setup.bat (Self-contained)
         zf.writestr(os.path.join(base_folder, 'FTODE Host Setup.bat'), setup_bat)
-
-        # 2. FTODE Host Uninstall.bat
         zf.writestr(os.path.join(base_folder, 'FTODE Host Uninstall.bat'), uninstall_bat)
-
-        # 3. Universal Extension zip
         zf.write(ext_zip_path, os.path.join(base_folder, 'FTODE-Extension.zip'))
+        zf.writestr(os.path.join(base_folder, 'Instructions.txt'), INSTRUCTIONS_WINDOWS_TEXT)
 
-        # 4. Instructions.txt
-        zf.writestr(os.path.join(base_folder, 'Instructions.txt'), INSTRUCTIONS_TEXT)
-
-    # Safely replace the target zip
     for attempt in range(10):
         try:
             if os.path.isfile(release_zip_path):
@@ -305,12 +400,43 @@ def build_clean_release_zip(version, dist_path, ext_zip_path):
         except Exception:
             import time
             time.sleep(0.5)
-    else:
-        fallback_name = f"FTODE-v{version}-Release-New.zip"
-        fallback_path = os.path.join(dist_path, fallback_name)
-        shutil.move(temp_zip, fallback_path)
-        release_zip_name = fallback_name
-        release_zip_path = fallback_path
+
+    size = os.path.getsize(release_zip_path)
+    return release_zip_name, release_zip_path, size
+
+
+def build_linux_release_zip(version, dist_path, ext_zip_path, payload_b64):
+    """Builds the clean Linux release bundle."""
+    release_zip_name = f"FTODE-v{version}-Linux.zip"
+    release_zip_path = os.path.join(dist_path, release_zip_name)
+    base_folder = f"FTODE-v{version}-Linux"
+
+    setup_sh = get_setup_sh_content(version, payload_b64)
+    uninstall_sh = get_uninstall_sh_content(version)
+
+    temp_zip = os.path.join(dist_path, f"temp_linux_{os.getpid()}.zip")
+    with zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Create ZipInfo with POSIX executable permissions (0o755)
+        setup_info = zipfile.ZipInfo(os.path.join(base_folder, 'FTODE Host Setup.sh'))
+        setup_info.external_attr = 0o755 << 16
+        zf.writestr(setup_info, setup_sh)
+
+        uninstall_info = zipfile.ZipInfo(os.path.join(base_folder, 'FTODE Host Uninstall.sh'))
+        uninstall_info.external_attr = 0o755 << 16
+        zf.writestr(uninstall_info, uninstall_sh)
+
+        zf.write(ext_zip_path, os.path.join(base_folder, 'FTODE-Extension.zip'))
+        zf.writestr(os.path.join(base_folder, 'Instructions.txt'), INSTRUCTIONS_LINUX_TEXT)
+
+    for attempt in range(10):
+        try:
+            if os.path.isfile(release_zip_path):
+                os.remove(release_zip_path)
+            shutil.move(temp_zip, release_zip_path)
+            break
+        except Exception:
+            import time
+            time.sleep(0.5)
 
     size = os.path.getsize(release_zip_path)
     return release_zip_name, release_zip_path, size
@@ -323,7 +449,7 @@ def main():
     version = get_version()
 
     print("=====================================================")
-    print(f"   FTODE - Packaging Release v{version}")
+    print(f"   FTODE - Packaging Releases v{version}")
     print("=====================================================")
     print("")
 
@@ -333,26 +459,40 @@ def main():
     print("[*] Generating high-resolution FTODE Logo .ico (from logo512.png)...")
     generate_ftode_logo_ico(ICO_PATH)
 
-    # 2. Build Extension single file (.zip works for Chrome, Edge, Opera & Firefox)
+    # 2. Build Extension universal archive
     print("\n[*] Packaging Extension into universal single file (FTODE-Extension.zip)...")
     ext_name, ext_path, ext_count, ext_size = build_extension_archive(version, DIST_DIR)
     print(f"    [v] {ext_name} ({ext_count} files, {format_size(ext_size)})")
 
-    # 3. Build Release ZIP
-    print("\n[*] Packaging Release ZIP with 4 clean standalone items...")
-    rel_name, rel_path, rel_size = build_clean_release_zip(version, DIST_DIR, ext_path)
-    print(f"    [v] {rel_name} ({format_size(rel_size)})")
+    # 3. Generate native host payload
+    payload_b64 = get_native_host_base64_payload()
+
+    # 4. Build Windows Release ZIP
+    print("\n[*] Packaging Windows Release ZIP...")
+    win_name, win_path, win_size = build_windows_release_zip(version, DIST_DIR, ext_path, payload_b64)
+    print(f"    [v] {win_name} ({format_size(win_size)})")
+
+    # 5. Build Linux Release ZIP
+    print("\n[*] Packaging Linux Release ZIP...")
+    linux_name, linux_path, linux_size = build_linux_release_zip(version, DIST_DIR, ext_path, payload_b64)
+    print(f"    [v] {linux_name} ({format_size(linux_size)})")
 
     print("\n=====================================================")
-    print(f" [SUCCESS] Release archive created in: dist/")
+    print(f" [SUCCESS] 2 Standalone Release bundles created in: dist/")
     print("=====================================================")
-    print(f" Release ZIP: {rel_name} ({format_size(rel_size)})")
+    print(f" 1. Windows Bundle: {win_name} ({format_size(win_size)})")
+    print(f"    |-- FTODE Host Setup.bat")
+    print(f"    |-- FTODE Host Uninstall.bat")
+    print(f"    |-- FTODE-Extension.zip")
+    print(f"    |-- Instructions.txt")
     print(f"")
-    print(f" Files inside {rel_name}:")
-    print(f" |-- FTODE Host Setup.bat     (1-Click Self-Contained Installer - No SmartScreen)")
-    print(f" |-- FTODE Host Uninstall.bat (1-Click Uninstaller - No SmartScreen)")
-    print(f" |-- FTODE-Extension.zip      (Universal extension package for all browsers)")
-    print(f" |-- Instructions.txt         (Simple 2-step setup & uninstall instructions)")
+    print(f" 2. Linux Bundle:   {linux_name} ({format_size(linux_size)})")
+    print(f"    |-- FTODE Host Setup.sh")
+    print(f"    |-- FTODE Host Uninstall.sh")
+    print(f"    |-- FTODE-Extension.zip")
+    print(f"    |-- Instructions.txt")
+    print(f"")
+    print(f" 3. Universal Ext:  {ext_name} ({format_size(ext_size)})")
     print("=====================================================\n")
 
 

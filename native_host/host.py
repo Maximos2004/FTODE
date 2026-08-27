@@ -27,10 +27,13 @@ if sys.platform == 'win32':
     except Exception:
         pass
 
-# Official direct release URLs for Windows
+# Official direct release URLs for Windows & Linux
 YTDLP_DOWNLOAD_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+YTDLP_LINUX_URL = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
 FFMPEG_ZIP_URL = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
 FFMPEG_BACKUP_ZIP_URL = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+FFMPEG_LINUX_TAR_URL = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz"
+
 
 # Global active process & write locks
 active_process = None
@@ -332,12 +335,13 @@ def find_executable(name, custom_path=None):
       1. Custom path in settings
       2. Local prepackaged native_host/bin/
       3. System PATH
-      4. Common install folders (WinGet, Scoop, Python Scripts, Program Files)
+      4. Common install folders (Windows & Linux)
     """
     if custom_path and os.path.isfile(custom_path):
         return custom_path
 
-    exe_name = f"{name}.exe" if sys.platform == 'win32' and not name.endswith('.exe') else name
+    is_win = sys.platform == 'win32'
+    exe_name = f"{name}.exe" if is_win and not name.endswith('.exe') else name
 
     # 1. Check local native_host/bin/
     local_bin = os.path.join(get_bin_dir(), exe_name)
@@ -350,7 +354,7 @@ def find_executable(name, custom_path=None):
         return found
 
     # 3. Check Windows common package locations
-    if sys.platform == 'win32':
+    if is_win:
         user_profile = os.environ.get('USERPROFILE', '')
         local_app_data = os.environ.get('LOCALAPPDATA', '')
         program_files = os.environ.get('ProgramFiles', 'C:\\Program Files')
@@ -379,6 +383,20 @@ def find_executable(name, custom_path=None):
 
         for loc in common_locations:
             if os.path.isfile(loc):
+                return loc
+    else:
+        # Linux / Unix common paths
+        home = os.path.expanduser('~')
+        linux_locations = [
+            os.path.join(home, '.local', 'bin', exe_name),
+            f'/usr/local/bin/{exe_name}',
+            f'/usr/bin/{exe_name}',
+            f'/bin/{exe_name}',
+            f'/snap/bin/{exe_name}',
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), exe_name)
+        ]
+        for loc in linux_locations:
+            if os.path.isfile(loc) and os.access(loc, os.X_OK):
                 return loc
 
     return None
@@ -435,18 +453,21 @@ def download_file_with_progress(url, dest_path, label="Downloading", callback=No
 def bootstrap_dependencies(force=False, callback=None):
     """
     Download and install yt-dlp and FFmpeg to native_host/bin/
-    only if missing (or if force=True).
+    only if missing (or if force=True). Supports Windows & Linux.
     """
     with bootstrap_lock:
+        is_win = sys.platform == 'win32'
         bin_dir = get_bin_dir()
-        ytdlp_dest = os.path.join(bin_dir, 'yt-dlp.exe')
-        ffmpeg_dest = os.path.join(bin_dir, 'ffmpeg.exe')
+        ytdlp_exe = 'yt-dlp.exe' if is_win else 'yt-dlp'
+        ffmpeg_exe = 'ffmpeg.exe' if is_win else 'ffmpeg'
+        ytdlp_dest = os.path.join(bin_dir, ytdlp_exe)
+        ffmpeg_dest = os.path.join(bin_dir, ffmpeg_exe)
 
         # 1. Check / Download yt-dlp (Only if missing or force)
         needs_ytdlp = force or not find_executable('yt-dlp')
         if needs_ytdlp:
             if callback:
-                callback(0, 0, 0, "[INFO] Downloading standalone yt-dlp.exe from official release...")
+                callback(0, 0, 0, f"[INFO] Downloading standalone {ytdlp_exe} from official release...")
 
             temp_ytdlp = ytdlp_dest + ".tmp"
             try:
@@ -454,16 +475,22 @@ def bootstrap_dependencies(force=False, callback=None):
                     mb_dl = dl / (1024 * 1024)
                     mb_tot = tot / (1024 * 1024)
                     if callback:
-                        callback(pct, dl, tot, f"[INFO] Downloading yt-dlp.exe: {pct:.1f}% ({mb_dl:.1f}/{mb_tot:.1f} MB)")
+                        callback(pct, dl, tot, f"[INFO] Downloading {ytdlp_exe}: {pct:.1f}% ({mb_dl:.1f}/{mb_tot:.1f} MB)")
 
-                download_file_with_progress(YTDLP_DOWNLOAD_URL, temp_ytdlp, "yt-dlp", on_ytdlp_prog)
+                url = YTDLP_DOWNLOAD_URL if is_win else YTDLP_LINUX_URL
+                download_file_with_progress(url, temp_ytdlp, "yt-dlp", on_ytdlp_prog)
                 if os.path.isfile(ytdlp_dest):
                     try: os.remove(ytdlp_dest)
                     except Exception: pass
                 os.replace(temp_ytdlp, ytdlp_dest)
+                if not is_win:
+                    try:
+                        os.chmod(ytdlp_dest, 0o755)
+                    except Exception:
+                        pass
 
                 if callback:
-                    callback(100, 0, 0, "[SUCCESS] yt-dlp.exe installed into native_host/bin/")
+                    callback(100, 0, 0, f"[SUCCESS] {ytdlp_exe} installed into native_host/bin/")
             except Exception as e:
                 if os.path.isfile(temp_ytdlp):
                     try: os.remove(temp_ytdlp)
@@ -473,47 +500,91 @@ def bootstrap_dependencies(force=False, callback=None):
         # 2. Check / Download FFmpeg (Only if missing or force)
         needs_ffmpeg = force or not find_executable('ffmpeg')
         if needs_ffmpeg:
-            if callback:
-                callback(0, 0, 0, "[INFO] Downloading FFmpeg build for Windows...")
+            if is_win:
+                if callback:
+                    callback(0, 0, 0, "[INFO] Downloading FFmpeg build for Windows...")
 
-            zip_temp = os.path.join(bin_dir, 'ffmpeg_temp.zip')
-            try:
-                def on_ffmpeg_prog(pct, dl, tot, lbl):
-                    mb_dl = dl / (1024 * 1024)
-                    mb_tot = tot / (1024 * 1024)
+                zip_temp = os.path.join(bin_dir, 'ffmpeg_temp.zip')
+                try:
+                    def on_ffmpeg_prog(pct, dl, tot, lbl):
+                        mb_dl = dl / (1024 * 1024)
+                        mb_tot = tot / (1024 * 1024)
+                        if callback:
+                            callback(pct, dl, tot, f"[INFO] Downloading FFmpeg build: {pct:.1f}% ({mb_dl:.1f}/{mb_tot:.1f} MB)")
+
+                    # Try primary then backup URL
+                    try:
+                        download_file_with_progress(FFMPEG_ZIP_URL, zip_temp, "FFmpeg", on_ffmpeg_prog)
+                    except Exception:
+                        download_file_with_progress(FFMPEG_BACKUP_ZIP_URL, zip_temp, "FFmpeg", on_ffmpeg_prog)
+
                     if callback:
-                        callback(pct, dl, tot, f"[INFO] Downloading FFmpeg build: {pct:.1f}% ({mb_dl:.1f}/{mb_tot:.1f} MB)")
+                        callback(95, 0, 0, "[INFO] Extracting ffmpeg.exe & ffprobe.exe...")
 
-                # Try primary then backup URL
-                try:
-                    download_file_with_progress(FFMPEG_ZIP_URL, zip_temp, "FFmpeg", on_ffmpeg_prog)
-                except Exception:
-                    download_file_with_progress(FFMPEG_BACKUP_ZIP_URL, zip_temp, "FFmpeg", on_ffmpeg_prog)
+                    # Extract only ffmpeg.exe and ffprobe.exe
+                    with zipfile.ZipFile(zip_temp, 'r') as zip_ref:
+                        for member in zip_ref.namelist():
+                            basename = os.path.basename(member).lower()
+                            if basename in ('ffmpeg.exe', 'ffprobe.exe'):
+                                target_path = os.path.join(bin_dir, basename)
+                                with zip_ref.open(member) as source, open(target_path, 'wb') as target:
+                                    shutil.copyfileobj(source, target)
 
+                    try:
+                        os.remove(zip_temp)
+                    except Exception:
+                        pass
+
+                    if callback:
+                        callback(100, 0, 0, "[SUCCESS] FFmpeg installed into native_host/bin/")
+                except Exception as e:
+                    if os.path.isfile(zip_temp):
+                        try: os.remove(zip_temp)
+                        except Exception: pass
+                    raise RuntimeError(f"Failed to download FFmpeg: {e}")
+            else:
+                # Linux FFmpeg: Try downloading static tar.xz or warn user
                 if callback:
-                    callback(95, 0, 0, "[INFO] Extracting ffmpeg.exe & ffprobe.exe...")
+                    callback(0, 0, 0, "[INFO] Downloading static FFmpeg build for Linux...")
 
-                # Extract only ffmpeg.exe and ffprobe.exe
-                with zipfile.ZipFile(zip_temp, 'r') as zip_ref:
-                    for member in zip_ref.namelist():
-                        basename = os.path.basename(member).lower()
-                        if basename in ('ffmpeg.exe', 'ffprobe.exe'):
-                            target_path = os.path.join(bin_dir, basename)
-                            with zip_ref.open(member) as source, open(target_path, 'wb') as target:
-                                shutil.copyfileobj(source, target)
-
+                tar_temp = os.path.join(bin_dir, 'ffmpeg_temp.tar.xz')
                 try:
-                    os.remove(zip_temp)
-                except Exception:
-                    pass
+                    def on_ffmpeg_prog_linux(pct, dl, tot, lbl):
+                        mb_dl = dl / (1024 * 1024)
+                        mb_tot = tot / (1024 * 1024)
+                        if callback:
+                            callback(pct, dl, tot, f"[INFO] Downloading FFmpeg build: {pct:.1f}% ({mb_dl:.1f}/{mb_tot:.1f} MB)")
 
-                if callback:
-                    callback(100, 0, 0, "[SUCCESS] FFmpeg installed into native_host/bin/")
-            except Exception as e:
-                if os.path.isfile(zip_temp):
-                    try: os.remove(zip_temp)
-                    except Exception: pass
-                raise RuntimeError(f"Failed to download FFmpeg: {e}")
+                    download_file_with_progress(FFMPEG_LINUX_TAR_URL, tar_temp, "FFmpeg", on_ffmpeg_prog_linux)
+                    if callback:
+                        callback(95, 0, 0, "[INFO] Extracting ffmpeg & ffprobe...")
+
+                    import tarfile
+                    with tarfile.open(tar_temp, 'r:*') as tar:
+                        for member in tar.getmembers():
+                            basename = os.path.basename(member.name).lower()
+                            if basename in ('ffmpeg', 'ffprobe'):
+                                f_obj = tar.extractfile(member)
+                                if f_obj:
+                                    target_path = os.path.join(bin_dir, basename)
+                                    with open(target_path, 'wb') as out_f:
+                                        shutil.copyfileobj(f_obj, out_f)
+                                    os.chmod(target_path, 0o755)
+
+                    try:
+                        os.remove(tar_temp)
+                    except Exception:
+                        pass
+
+                    if callback:
+                        callback(100, 0, 0, "[SUCCESS] FFmpeg installed into native_host/bin/")
+                except Exception as e:
+                    if os.path.isfile(tar_temp):
+                        try: os.remove(tar_temp)
+                        except Exception: pass
+                    log_debug(f"[BOOTSTRAP] FFmpeg Linux auto-download error: {e}")
+                    if callback:
+                        callback(100, 0, 0, "[!] Note: FFmpeg can also be installed with: sudo apt install ffmpeg (or pacman -S ffmpeg)")
 
         return find_executable('yt-dlp'), find_executable('ffmpeg')
 
@@ -1604,31 +1675,51 @@ def handle_cancel(message=None):
     })
 
 
+def get_linux_browser_manifest_dirs():
+    """
+    Standard Linux user-level native messaging host directories.
+    """
+    home = os.path.expanduser('~')
+    return {
+        'Google Chrome': os.path.join(home, '.config', 'google-chrome', 'NativeMessagingHosts'),
+        'Chromium': os.path.join(home, '.config', 'chromium', 'NativeMessagingHosts'),
+        'Brave': os.path.join(home, '.config', 'BraveSoftware', 'Brave-Browser', 'NativeMessagingHosts'),
+        'Microsoft Edge': os.path.join(home, '.config', 'microsoft-edge', 'NativeMessagingHosts'),
+        'Opera': os.path.join(home, '.config', 'opera', 'NativeMessagingHosts'),
+        'Vivaldi': os.path.join(home, '.config', 'vivaldi', 'NativeMessagingHosts'),
+        'Mozilla Firefox': os.path.join(home, '.mozilla', 'native-messaging-hosts')
+    }
+
+
 def install_registry(extension_id=None):
     """
-    Self-installer helper for Windows Chrome Native Messaging registration.
+    Cross-platform self-installer for Native Messaging registration (Windows & Linux).
     Uses the fixed permanent Extension ID by default.
     """
-    if sys.platform != 'win32':
-        print("[!] Self-installation registry script is for Windows.")
-        return
-
-    import winreg
-
-    # Permanent Extension ID from manifest.json fixed RSA key
     if not extension_id or extension_id == 'ALLOWED_EXTENSION_ID':
         extension_id = 'iabbelaamkcbkklcipbbkgegfenjhklc'
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
+    is_win = sys.platform == 'win32'
+    launcher_path = os.path.join(script_dir, 'run_host.bat' if is_win else 'run_host.sh')
+
+    if not is_win:
+        # Ensure execution permissions on Linux
+        try:
+            os.chmod(os.path.join(script_dir, 'host.py'), 0o755)
+            if os.path.isfile(launcher_path):
+                os.chmod(launcher_path, 0o755)
+        except Exception:
+            pass
+
     chrome_manifest_path = os.path.join(script_dir, 'com.ftode.host.json')
     firefox_manifest_path = os.path.join(script_dir, 'com.ftode.host-firefox.json')
-    bat_path = os.path.join(script_dir, 'run_host.bat')
 
     # 1. Chrome / Chromium Manifest
     chrome_manifest_data = {
         "name": "com.ftode.host",
         "description": "Finally that online downloader extension (FTODE) Native Messaging Host",
-        "path": bat_path,
+        "path": launcher_path,
         "type": "stdio",
         "allowed_origins": [
             f"chrome-extension://{extension_id}/"
@@ -1641,7 +1732,7 @@ def install_registry(extension_id=None):
     firefox_manifest_data = {
         "name": "com.ftode.host",
         "description": "Finally that online downloader extension (FTODE) Native Messaging Host",
-        "path": bat_path,
+        "path": launcher_path,
         "type": "stdio",
         "allowed_extensions": [
             "ftode@maxakt.local"
@@ -1650,22 +1741,35 @@ def install_registry(extension_id=None):
     with open(firefox_manifest_path, 'w', encoding='utf-8') as f:
         json.dump(firefox_manifest_data, f, indent=2)
 
-    # Register in Windows Current User Registry across all supported browsers
-    reg_keys = [
-        (r"Software\Google\Chrome\NativeMessagingHosts\com.ftode.host", "Google Chrome", chrome_manifest_path),
-        (r"Software\Microsoft\Edge\NativeMessagingHosts\com.ftode.host", "Microsoft Edge", chrome_manifest_path),
-        (r"Software\Chromium\NativeMessagingHosts\com.ftode.host", "Chromium / Opera / Brave", chrome_manifest_path),
-        (r"Software\Mozilla\NativeMessagingHosts\com.ftode.host", "Mozilla Firefox", firefox_manifest_path)
-    ]
-    for reg_key_path, browser_name, m_path in reg_keys:
-        try:
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, reg_key_path)
-            winreg.SetValue(key, "", winreg.REG_SZ, m_path)
-            winreg.CloseKey(key)
-            print(f"[v] Successfully registered for {browser_name} in Windows Registry!")
-            print(f"    Registry Key: HKCU\\{reg_key_path}")
-        except Exception as e:
-            print(f"[x] Registry installation failed for {browser_name}: {e}")
+    if is_win:
+        import winreg
+        reg_keys = [
+            (r"Software\Google\Chrome\NativeMessagingHosts\com.ftode.host", "Google Chrome", chrome_manifest_path),
+            (r"Software\Microsoft\Edge\NativeMessagingHosts\com.ftode.host", "Microsoft Edge", chrome_manifest_path),
+            (r"Software\Chromium\NativeMessagingHosts\com.ftode.host", "Chromium / Opera / Brave", chrome_manifest_path),
+            (r"Software\Mozilla\NativeMessagingHosts\com.ftode.host", "Mozilla Firefox", firefox_manifest_path)
+        ]
+        for reg_key_path, browser_name, m_path in reg_keys:
+            try:
+                key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, reg_key_path)
+                winreg.SetValue(key, "", winreg.REG_SZ, m_path)
+                winreg.CloseKey(key)
+                print(f"[v] Successfully registered for {browser_name} in Windows Registry!")
+            except Exception as e:
+                print(f"[x] Registry installation failed for {browser_name}: {e}")
+    else:
+        # Linux filesystem registration
+        browser_dirs = get_linux_browser_manifest_dirs()
+        for browser_name, target_dir in browser_dirs.items():
+            try:
+                os.makedirs(target_dir, exist_ok=True)
+                dest_file = os.path.join(target_dir, 'com.ftode.host.json')
+                src_data = firefox_manifest_data if 'Firefox' in browser_name else chrome_manifest_data
+                with open(dest_file, 'w', encoding='utf-8') as f:
+                    json.dump(src_data, f, indent=2)
+                print(f"[v] Installed manifest for {browser_name} -> {dest_file}")
+            except Exception as e:
+                print(f"[x] Could not write manifest for {browser_name}: {e}")
 
     print(f"    Chrome Manifest: {chrome_manifest_path}")
     print(f"    Firefox Manifest: {firefox_manifest_path}")
@@ -1675,28 +1779,37 @@ def install_registry(extension_id=None):
 
 def uninstall_registry():
     """
-    Unregisters the Native Messaging Host from Windows Registry across Chrome, Edge, Brave, Opera, and Firefox.
+    Unregisters the Native Messaging Host across browsers (Windows & Linux).
     """
-    if sys.platform != 'win32':
-        print("[*] Uninstallation is only supported on Windows.")
-        return
+    if sys.platform == 'win32':
+        import winreg
+        reg_keys = [
+            (r"Software\Google\Chrome\NativeMessagingHosts\com.ftode.host", "Google Chrome"),
+            (r"Software\Microsoft\Edge\NativeMessagingHosts\com.ftode.host", "Microsoft Edge"),
+            (r"Software\Chromium\NativeMessagingHosts\com.ftode.host", "Chromium / Opera / Brave"),
+            (r"Software\Mozilla\NativeMessagingHosts\com.ftode.host", "Mozilla Firefox")
+        ]
 
-    reg_keys = [
-        (r"Software\Google\Chrome\NativeMessagingHosts\com.ftode.host", "Google Chrome"),
-        (r"Software\Microsoft\Edge\NativeMessagingHosts\com.ftode.host", "Microsoft Edge"),
-        (r"Software\Chromium\NativeMessagingHosts\com.ftode.host", "Chromium / Opera / Brave"),
-        (r"Software\Mozilla\NativeMessagingHosts\com.ftode.host", "Mozilla Firefox")
-    ]
-
-    print("[*] Removing FTODE Native Host from Windows Registry...")
-    for reg_key_path, browser_name in reg_keys:
-        try:
-            winreg.DeleteKey(winreg.HKEY_CURRENT_USER, reg_key_path)
-            print(f"[v] Successfully removed registry key for {browser_name}!")
-        except FileNotFoundError:
-            print(f"[-] Registry key already clean for {browser_name}.")
-        except Exception as e:
-            print(f"[x] Could not delete registry key for {browser_name}: {e}")
+        print("[*] Removing FTODE Native Host from Windows Registry...")
+        for reg_key_path, browser_name in reg_keys:
+            try:
+                winreg.DeleteKey(winreg.HKEY_CURRENT_USER, reg_key_path)
+                print(f"[v] Successfully removed registry key for {browser_name}!")
+            except FileNotFoundError:
+                print(f"[-] Registry key already clean for {browser_name}.")
+            except Exception as e:
+                print(f"[x] Could not delete registry key for {browser_name}: {e}")
+    else:
+        print("[*] Removing FTODE Native Host manifests on Linux...")
+        browser_dirs = get_linux_browser_manifest_dirs()
+        for browser_name, target_dir in browser_dirs.items():
+            dest_file = os.path.join(target_dir, 'com.ftode.host.json')
+            if os.path.isfile(dest_file):
+                try:
+                    os.remove(dest_file)
+                    print(f"[v] Removed manifest for {browser_name}: {dest_file}")
+                except Exception as e:
+                    print(f"[x] Could not remove manifest for {browser_name}: {e}")
 
     print("\n[v] FTODE Native Host unregistration complete.")
 
