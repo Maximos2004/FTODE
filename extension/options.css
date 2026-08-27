@@ -2,6 +2,11 @@
    Finally that online downloader extension (FTODE) - Options & Settings Theme
    ========================================================================== */
 
+/* Utility */
+.hidden {
+  display: none !important;
+}
+
 :root {
   /* Dark Theme (Default) */
   --bg-app: #12171d;
@@ -831,17 +836,117 @@ code {
   border: 1px solid var(--border-subtle);
   color: var(--text-muted);
   font-family: 'Outfit', sans-serif;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
   cursor: pointer;
-  transition: var(--theme-transition);
+  transition: all 0.15s ease, var(--theme-transition);
 }
 
 .btn-copy:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.18);
+  border-color: var(--border-subtle-hover);
   color: var(--text-pure);
+  transform: translateY(-0.5px);
+}
+
+.status-chip-badge {
+  font-family: 'Outfit', sans-serif;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  letter-spacing: -0.2px;
+  transition: var(--theme-transition);
+}
+
+.status-chip-badge.up-to-date {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-chip-badge.update-available {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  animation: pulse-badge 2s infinite ease-in-out;
+}
+
+@keyframes pulse-badge {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.85; }
+}
+
+/* Extension GitHub Update Notification Card */
+.ext-update-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(234, 88, 12, 0.16));
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  transition: var(--theme-transition);
+}
+
+.ext-update-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ext-update-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+  animation: pulse-dot 1.5s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.ext-update-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-pure);
+}
+
+.ext-update-desc {
+  font-size: 11.5px;
+  color: var(--text-sub);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.btn-github-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 16px;
+  background: #f59e0b;
+  color: #1a1300;
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  border-radius: var(--radius-full);
+  text-decoration: none;
+  margin-top: 4px;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.btn-github-download:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
 }
 
 /* Tool Management Button */
@@ -853,11 +958,11 @@ code {
 
 .btn-bootstrap {
   width: 100%;
-  height: 40px;
+  height: 42px;
   background: var(--accent-audio);
   color: var(--accent-audio-dark);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   font-family: 'Outfit', sans-serif;
   font-size: 13px;
   font-weight: 800;

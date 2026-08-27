@@ -44,15 +44,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   /**
-   * Load current extension ID
+   * Load current extension ID & Version
    */
   const extId = chrome.runtime.id || 'unknown';
   if (extensionIdVal) extensionIdVal.textContent = extId;
 
   const manifest = chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
+  const currentExtVersion = manifest?.version || '1.0.0';
   const footerVersionEl = document.getElementById('footer-version');
-  if (footerVersionEl && manifest?.version) {
-    footerVersionEl.textContent = `v${manifest.version}`;
+  if (footerVersionEl) footerVersionEl.textContent = `v${currentExtVersion}`;
+
+  const diagExtVersion = document.getElementById('diag-ext-version');
+  const diagExtBadge = document.getElementById('diag-ext-badge');
+  const extUpdateCard = document.getElementById('ext-update-card');
+  const extNewVersion = document.getElementById('ext-new-version');
+  const btnGithubDownload = document.getElementById('btn-github-download');
+
+  if (diagExtVersion) {
+    diagExtVersion.textContent = `v${currentExtVersion}`;
+    diagExtVersion.style.color = '#6bd29d';
   }
 
   if (btnCopyExtId) {
@@ -62,6 +72,94 @@ document.addEventListener('DOMContentLoaded', async () => {
         setTimeout(() => { btnCopyExtId.textContent = 'Copy'; }, 1500);
       });
     });
+  }
+
+  /**
+   * Semantic Version comparator (e.g. '1.1.0' > '1.0.0')
+   */
+  function compareSemver(v1, v2) {
+    const p1 = (v1 || '').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+    const p2 = (v2 || '').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+    const len = Math.max(p1.length, p2.length);
+    for (let i = 0; i < len; i++) {
+      const num1 = p1[i] || 0;
+      const num2 = p2[i] || 0;
+      if (num1 > num2) return 1;
+      if (num1 < num2) return -1;
+    }
+    return 0;
+  }
+
+  /**
+   * Checks GitHub Releases and raw repository for newer FTODE Extension versions
+   */
+  async function checkGitHubExtensionUpdate() {
+    const GITHUB_REPO = 'Maximos2004/FTODE';
+    try {
+      // 1. Check GitHub Latest Release endpoint
+      const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+        headers: { 'Accept': 'application/vnd.github.v3+json' },
+        cache: 'no-store'
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const latestTag = data.tag_name || '';
+        const cleanVer = latestTag.replace(/^v/, '');
+        const releaseUrl = data.html_url || `https://github.com/${GITHUB_REPO}/releases/latest`;
+
+        if (cleanVer && compareSemver(cleanVer, currentExtVersion) > 0) {
+          return { hasUpdate: true, latestVersion: cleanVer, releaseUrl };
+        }
+      }
+    } catch (e) {
+      console.warn('[Options] GitHub release API check failed:', e);
+    }
+
+    try {
+      // 2. Fallback check raw manifest.json on main branch
+      const rawRes = await fetch(`https://raw.githubusercontent.com/${GITHUB_REPO}/main/extension/manifest.json`, {
+        cache: 'no-store'
+      });
+      if (rawRes.ok) {
+        const rawData = await rawRes.json();
+        const rawVer = rawData.version || '';
+        if (rawVer && compareSemver(rawVer, currentExtVersion) > 0) {
+          return { hasUpdate: true, latestVersion: rawVer, releaseUrl: `https://github.com/${GITHUB_REPO}/releases/latest` };
+        }
+      }
+    } catch (e) {
+      console.warn('[Options] GitHub raw manifest check failed:', e);
+    }
+
+    return { hasUpdate: false, currentVersion: currentExtVersion };
+  }
+
+  /**
+   * Applies update check result to GUI badge and alert box
+   */
+  function applyExtensionUpdateUI(updateResult) {
+    if (updateResult && updateResult.hasUpdate) {
+      if (diagExtVersion) {
+        diagExtVersion.textContent = `v${currentExtVersion} (Update: v${updateResult.latestVersion})`;
+        diagExtVersion.style.color = '#fbbf24';
+      }
+      if (extUpdateCard) {
+        if (extNewVersion) extNewVersion.textContent = `v${updateResult.latestVersion}`;
+        if (btnGithubDownload && updateResult.releaseUrl) {
+          btnGithubDownload.href = updateResult.releaseUrl;
+        }
+        extUpdateCard.classList.remove('hidden');
+      }
+    } else {
+      if (diagExtVersion) {
+        diagExtVersion.textContent = `v${currentExtVersion}`;
+        diagExtVersion.style.color = '#6bd29d';
+      }
+      if (extUpdateCard) {
+        extUpdateCard.classList.add('hidden');
+      }
+    }
   }
 
   /**
@@ -218,10 +316,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         hostLabel.textContent = 'Connected & Operational';
 
         const data = response.data || {};
-        diagYtdlp.textContent = data.ytdlp_version ? `v${data.ytdlp_version}` : (data.ytdlp_available ? 'Available' : 'Not Installed');
+        const formatToolVersion = (ver, isAvailable) => {
+          if (!ver || ver === 'Available') return isAvailable ? 'Available' : 'Not Installed';
+          return ver.startsWith('v') ? ver : `v${ver}`;
+        };
+
+        diagYtdlp.textContent = formatToolVersion(data.ytdlp_version, data.ytdlp_available);
         diagYtdlp.style.color = data.ytdlp_available ? '#6bd29d' : '#f87171';
 
-        diagFfmpeg.textContent = data.ffmpeg_version ? `v${data.ffmpeg_version}` : (data.ffmpeg_available ? 'Available' : 'Not Installed');
+        diagFfmpeg.textContent = formatToolVersion(data.ffmpeg_version, data.ffmpeg_available);
         diagFfmpeg.style.color = data.ffmpeg_available ? '#6bd29d' : '#f87171';
 
         try {
@@ -323,29 +426,51 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnBootstrapTools.disabled = false;
       }
     } else {
-      // Check for Updates Mode
-      bootstrapStatusText.textContent = 'Checking for yt-dlp & FFmpeg updates...';
-      try {
-        const response = await chrome.runtime.sendMessage({
-          type: 'CHECK_UPDATES'
-        });
+      // Check for Updates Mode (Checks both GitHub Extension & Native Host Tools)
+      bootstrapStatusText.textContent = 'Checking for Extension, yt-dlp & FFmpeg updates...';
+      bootstrapFill.style.width = '25%';
 
-        if (response && response.success) {
-          const resultMsg = response.data && response.data.message ? response.data.message : 'Tools are up to date!';
-          showToastNotification(resultMsg);
-          bootstrapStatusText.textContent = resultMsg;
-          bootstrapFill.style.width = '100%';
-          setTimeout(() => {
-            bootstrapProgressBox.classList.add('hidden');
-            btnBootstrapTools.disabled = false;
-            testHost(false);
-          }, 2000);
-        } else {
-          const err = response ? response.error : 'Update check failed';
-          showToastNotification(err, true);
-          bootstrapStatusText.textContent = 'Error: ' + err;
-          btnBootstrapTools.disabled = false;
+      try {
+        // 1. Check GitHub for Extension update concurrently with Host tool check
+        const [extUpdate, hostResponse] = await Promise.allSettled([
+          checkGitHubExtensionUpdate(),
+          chrome.runtime.sendMessage({ type: 'CHECK_UPDATES' })
+        ]);
+
+        bootstrapFill.style.width = '75%';
+
+        let extUpdateResult = null;
+        if (extUpdate.status === 'fulfilled') {
+          extUpdateResult = extUpdate.value;
+          applyExtensionUpdateUI(extUpdateResult);
         }
+
+        let hostSuccess = false;
+        let hostMsg = 'Tools up to date.';
+        if (hostResponse.status === 'fulfilled' && hostResponse.value && hostResponse.value.success) {
+          hostSuccess = true;
+          hostMsg = hostResponse.value.data?.message || 'yt-dlp & FFmpeg are up to date!';
+        }
+
+        bootstrapFill.style.width = '100%';
+
+        if (extUpdateResult && extUpdateResult.hasUpdate) {
+          const bannerMsg = `🎉 New FTODE v${extUpdateResult.latestVersion} available on GitHub!`;
+          showToastNotification(bannerMsg);
+          bootstrapStatusText.textContent = bannerMsg;
+        } else if (hostSuccess) {
+          showToastNotification('Everything is up to date!');
+          bootstrapStatusText.textContent = 'Extension, yt-dlp & FFmpeg are all up to date!';
+        } else {
+          showToastNotification(hostMsg);
+          bootstrapStatusText.textContent = hostMsg;
+        }
+
+        setTimeout(() => {
+          bootstrapProgressBox.classList.add('hidden');
+          btnBootstrapTools.disabled = false;
+          testHost(false);
+        }, 2200);
       } catch (err) {
         showToastNotification('Update check error: ' + err.message, true);
         bootstrapStatusText.textContent = 'Error: ' + err.message;
@@ -443,6 +568,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.documentElement.classList.remove('preload');
   }, 200);
 
-  // Background host test (silent, no popup toast on startup)
+  // Background host test & GitHub update check (silent, no popup toast on startup)
   testHost(false);
+  checkGitHubExtensionUpdate().then(applyExtensionUpdateUI).catch(() => {});
 });

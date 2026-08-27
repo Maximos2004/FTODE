@@ -391,9 +391,17 @@ def get_version(executable_path):
     if not executable_path or not os.path.isfile(executable_path):
         return None
     try:
-        res = subprocess.run([executable_path, '--version'], capture_output=True, text=True, timeout=3, stdin=subprocess.DEVNULL)
+        is_ffmpeg = 'ffmpeg' in os.path.basename(executable_path).lower()
+        flag = '-version' if is_ffmpeg else '--version'
+        res = subprocess.run([executable_path, flag], capture_output=True, text=True, timeout=3, stdin=subprocess.DEVNULL)
         if res.returncode == 0:
-            return res.stdout.strip().split('\n')[0]
+            first_line = res.stdout.strip().split('\n')[0]
+            if is_ffmpeg:
+                import re
+                m = re.search(r'ffmpeg version\s+([^\s]+)', first_line, re.IGNORECASE)
+                if m:
+                    return m.group(1)
+            return first_line
     except Exception:
         pass
     return "Available"
