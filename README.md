@@ -1,3 +1,7 @@
+<div align="center">
+
+<img src="assets/logo.png" alt="FTODE Logo" width="128" height="128">
+
 # Finally That Online Downloader Extension (FTODE)
 
 A simple browser extension + Python backend that lets you download video and audio from almost any website (YouTube, SoundCloud, Vimeo, Twitch, Reddit, and more) with 1 click.
@@ -6,11 +10,13 @@ A simple browser extension + Python backend that lets you download video and aud
 ![OS](https://img.shields.io/badge/OS-Windows%20%7C%20Linux-blue)
 ![Browsers](https://img.shields.io/badge/Browsers-Chrome%20%7C%20Edge%20%7C%20Opera%20%7C%20Firefox-10b981)
 ![Backend](https://img.shields.io/badge/Backend-Python%20%7C%20yt--dlp-06b6d4)
-![License](https://img.shields.io/badge/License-GPLv3-blue.svg)
+[![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
----
+<br>
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/F6V82112T7)
+
+</div>
 
 ---
 
