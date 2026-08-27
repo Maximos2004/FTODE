@@ -1041,10 +1041,11 @@ def handle_download(payload):
         target_res = res_map.get(video_quality)
         format_spec = "bv*+ba/b"
 
+        # Prioritize original/default audio tracks ('lang') over auto-translations and dubs
         if target_res:
-            cmd_args.extend(['--format-sort', f"res:{target_res},fps,br"])
+            cmd_args.extend(['--format-sort', f"lang,res:{target_res},fps,quality,br"])
         else:
-            cmd_args.extend(['--format-sort', "res,fps,br"])
+            cmd_args.extend(['--format-sort', "lang,res,fps,quality,br"])
 
         if target_format == 'gif':
             cmd_args.extend([
@@ -1066,6 +1067,7 @@ def handle_download(payload):
     elif media_type == 'audio':
         fmt = 'vorbis' if target_format in ('ogg', 'vorbis') else target_format
         cmd_args.extend([
+            '--format-sort', 'lang,quality,br',
             '-f', 'bestaudio/best',
             '-x',
             '--audio-format', fmt
