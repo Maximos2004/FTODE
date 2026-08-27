@@ -4,7 +4,7 @@
 
 # Finally That Online Downloader Extension (FTODE)
 
-A simple browser extension + Python backend that lets you download video and audio from almost any website (YouTube, SoundCloud, Vimeo, Twitch, Reddit, and more) with 1 click.
+**A modern 1-click video and audio downloader browser extension powered by Python & yt-dlp.**
 
 ![Manifest](https://img.shields.io/badge/Extension-Manifest%20V3-6366f1)
 ![OS](https://img.shields.io/badge/OS-Windows%20%7C%20Linux-blue)
@@ -16,20 +16,55 @@ A simple browser extension + Python backend that lets you download video and aud
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/F6V82112T7)
 
+<br><br>
+
+<img src="assets/showcase-video-download.gif" alt="1-Click Video Download Showcase" width="750">
+
+*Effortless 1-click downloads with live speed, progress percentage, and console output.*
+
 </div>
 
 ---
 
-## ✨ Features
+## ✨ Features & Visual Tour
 
-- **1-Click Downloads:** Download video (MP4/WEBM/MKV) or music (MP3/FLAC/WAV) with a single click.
-- **Playlist Downloads:** Download entire playlists with a single click.
-- **Multi-Site Support:** Works seamlessly on YouTube, SoundCloud, Vimeo, Twitch, Reddit, and hundreds more.
-- **Zero Setup for Tools:** You don't need to manually install `yt-dlp` or `ffmpeg`. The setup script gets them for you automatically!
-- **Auto Stream Detection:** Detects videos playing on the page and direct stream links.
-- **Dark & Light Mode:** Looks clean and matches your style.
-- **Customizable:** Change download formats, quality (up to 8K), and choose where your files get saved.
-- **Live Progress:** Shows download speed, percentage, and ETA in the popup.
+### 🎵 1-Click Audio & Music Extraction
+Turn any video or music track into high-fidelity audio files (MP3, FLAC, WAV, OPUS) with one click.
+
+<p align="center">
+  <img src="assets/showcase-audio-download.gif" alt="Audio Download Showcase" width="750">
+</p>
+
+---
+
+### 📋 Full Playlist & Batch Downloads
+Download entire YouTube playlists or music albums sequentially with live queue tracking.
+
+<p align="center">
+  <img src="assets/showcase-playlist-download.gif" alt="Playlist Download Showcase" width="750">
+</p>
+
+---
+
+### 🌐 Universal Multi-Site Support
+Download from **SoundCloud, Vimeo, Twitch, Reddit, Twitter/X, Dailymotion**, and hundreds of other supported platforms.
+
+<p align="center">
+  <img src="assets/showcase-other-sites-download.gif" alt="SoundCloud and Multi-Site Showcase" width="750">
+</p>
+
+---
+
+### ⚙️ Powerful Customization
+Tailor the downloader to your exact workflow:
+- **Video Formats & Quality:** MP4, WEBM, MKV, GIF up to 8K resolution.
+- **Audio Formats & Bitrates:** MP3 (320kbps), FLAC (lossless), WAV, OPUS, AAC.
+- **Custom Save Directories:** Choose any destination directory or drive on your machine.
+- **1-Click Updates:** Easily keep `yt-dlp` and `ffmpeg` up to date with a single click.
+
+<p align="center">
+  <img src="assets/showcase-settings.gif" alt="Settings Showcase" width="750">
+</p>
 
 ---
 
@@ -37,7 +72,7 @@ A simple browser extension + Python backend that lets you download video and aud
 
 ### What you need:
 - **Windows 10/11** or **Linux**
--  A Browser (dah xP)
+- A Browser (**Chrome**, **Edge**, **Brave**, **Opera / Opera GX**, or **Firefox**)
 - **Python 3.8+** installed:
   - **Windows:** Download from [python.org](https://www.python.org/downloads/) *(Make sure to check "Add Python to PATH")*
   - **Linux:** Comes pre-installed on most distros, or install with `sudo apt install python3 ffmpeg` / `sudo pacman -S python ffmpeg`
@@ -71,30 +106,6 @@ It will connect the extension with Python and make sure `yt-dlp` and `ffmpeg` ar
 2. Click the **FTODE** icon in your toolbar.
 3. Click **Download MP4**, **Download MP3**, or **Download Playlist**.
 4. The files will be saved in your `Downloads/FTODE` folder!
-
-#### 🎬 1-Click Video Download:
-![Video Download Showcase](assets/showcase-video-download.gif)
-
-#### 🎵 1-Click Audio Download:
-![Audio Download Showcase](assets/showcase-audio-download.gif)
-
-#### 📋 Full Playlist Download:
-![Playlist Download Showcase](assets/showcase-playlist-download.gif)
-
-#### 🌐 Multi-Site Support (SoundCloud & More):
-![SoundCloud Download Showcase](assets/showcase-other-sites-download.gif)
-
----
-
-## ⚙️ Settings
-
-Right-click the extension icon and choose **Options** (or click the gear icon in the popup):
-- Pick your preferred video quality & format (MP4, WEBM, MKV, GIF, etc.).
-- Pick your preferred audio format (MP3, FLAC, WAV, OPUS, etc.).
-- Set a custom download folder (like `D:\Downloads\FTODE` or `~/Videos/FTODE`).
-- Click "Check for Updates" to update `yt-dlp` and `ffmpeg` anytime.
-
-![Settings Showcase](assets/showcase-settings.gif)
 
 ---
 
