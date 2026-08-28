@@ -53,7 +53,7 @@ Download from SoundCloud, Vimeo, Twitch, Reddit, and more:
 - **Windows 10/11** or **Linux**
 - **A Browser** (dah xP)
 - **Python 3.8+** installed:
-  - **Windows:** Download from [python.org](https://www.python.org/downloads/) *(Make sure to check "Add Python to PATH")* or *Download it from the Microsoft Store*
+  - **Windows:** Download from [python.org](https://www.python.org/downloads/) *(Make sure to check "Add Python to PATH")* or *Download it from the [Microsoft Store](https://apps.microsoft.com/detail/9PNRBTZXMB4Z?hl=en-us&gl=NL&ocid=pdpshare)*
   - **Linux:** Comes pre-installed on most distros, or install with `sudo apt install python3 ffmpeg` / `sudo pacman -S python ffmpeg`
 
 ---
