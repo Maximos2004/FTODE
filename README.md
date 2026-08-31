@@ -32,7 +32,7 @@ Yes I use Opera Don't Judge me xP
 - **1-Click Downloads:** Download video (MP4/WEBM/MKV) or music (MP3/FLAC/WAV) with a single click.
 - **Playlist & Batch Downloads:** Download entire playlists and albums in 1 click.
 - **Multi-Site Support:** Works seamlessly on YouTube, SoundCloud, Vimeo, Twitch, Reddit, and hundreds more.
-- **Zero Setup for Tools:** You don't need to manually install `yt-dlp` or `ffmpeg`. The setup script gets them for you automatically!
+- **Zero Setup for Tools:** You don't need to manually install Python, `yt-dlp`, or `ffmpeg`. The setup script configures everything for you automatically!
 - **Auto Stream Detection:** Detects videos playing on the page and direct stream links.
 - **Dark & Light Mode:** Looks clean and matches your style.
 - **Customizable:** Change download formats, quality (up to 8K), and choose where your files get saved.
@@ -54,10 +54,9 @@ Download from SoundCloud, Vimeo, Twitch, Reddit, and more:
 
 ### What you need:
 - **Windows 10/11** or **Linux**
-- **A Browser** (dah xP)
-- **Python 3.8+**:
-  - **Windows:** `setup.bat` will **automatically download and install Python for you** if it is not already installed! *(You can also install it manually from [python.org](https://www.python.org/downloads/) or the [Microsoft Store](https://apps.microsoft.com/detail/9PNRBTZXMB4Z?hl=en-us&gl=NL&ocid=pdpshare)).*
-  - **Linux:** Comes pre-installed on most distros, or install with `sudo apt install python3 ffmpeg` / `sudo pacman -S python ffmpeg`
+- **A Web Browser** (Chrome, Edge, Opera, Opera GX, Brave, Firefox, etc.)
+
+*(All backend requirements — Python, `yt-dlp`, and `ffmpeg` — are handled automatically by the setup script!)*
 
 ---
 
@@ -76,10 +75,10 @@ Download from SoundCloud, Vimeo, Twitch, Reddit, and more:
 ---
 
 ### Step 2: Run Setup
-- **Windows:** Double-click **`setup.bat`** *(it will verify Python, install it automatically if missing, register the native host, and bootstrap `yt-dlp` and `ffmpeg`)*
-- **Linux:** Open a terminal in this folder and run **`bash setup.sh`**
+- **Windows:** Double-click **`setup.bat`** *(it automatically verifies and sets up Python, `yt-dlp`, and `ffmpeg` if needed, and connects the browser).*
+- **Linux:** Open a terminal in this folder and run **`bash setup.sh`** *(on Linux, make sure `python3` and `ffmpeg` are installed via your distro's package manager).*
 
-It will connect the extension with Python and make sure `yt-dlp` and `ffmpeg` are ready. Done!
+It will connect the extension with the backend engine. Done!
 
 ---
 
