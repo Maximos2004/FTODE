@@ -24,6 +24,7 @@ if not defined PY_CMD (
     if not exist "!FTODE_DATA!" mkdir "!FTODE_DATA!" >nul 2>&1
 
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; " ^
         "$arch = if ([IntPtr]::Size -eq 8) { 'amd64' } else { 'win32' }; " ^
         "$installerUrl = \"https://www.python.org/ftp/python/3.12.8/python-3.12.8-$arch.exe\"; " ^
         "$installerPath = Join-Path $env:LOCALAPPDATA 'FTODE\.ftode_python_installer.exe'; " ^

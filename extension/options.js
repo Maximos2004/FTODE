@@ -243,15 +243,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   function updateFolderHint() {
     if (!downloadFolderHint || !downloadFolderInput) return;
     const val = downloadFolderInput.value.trim();
+    downloadFolderHint.replaceChildren();
+
     if (!val) {
-      downloadFolderHint.innerHTML = 'Enter a subfolder name (e.g. <code>FTODE</code>) or full path (e.g. <code>D:\\Downloads\\FTODE</code>).';
+      downloadFolderHint.appendChild(document.createTextNode('Enter a subfolder name (e.g. '));
+      const code1 = document.createElement('code');
+      code1.textContent = 'FTODE';
+      downloadFolderHint.appendChild(code1);
+      downloadFolderHint.appendChild(document.createTextNode(') or full path (e.g. '));
+      const code2 = document.createElement('code');
+      code2.textContent = 'D:\\Downloads\\FTODE';
+      downloadFolderHint.appendChild(code2);
+      downloadFolderHint.appendChild(document.createTextNode(').'));
       return;
     }
+
     const isAbs = /^[a-zA-Z]:[\\/]/.test(val) || val.startsWith('/') || val.startsWith('\\\\');
     if (isAbs) {
-      downloadFolderHint.innerHTML = `Custom path: <code>${val}</code>`;
+      downloadFolderHint.appendChild(document.createTextNode('Custom path: '));
+      const code = document.createElement('code');
+      code.textContent = val;
+      downloadFolderHint.appendChild(code);
     } else {
-      downloadFolderHint.innerHTML = `Subfolder: <code>Downloads/${val}</code> (inside your system Downloads folder).`;
+      downloadFolderHint.appendChild(document.createTextNode('Subfolder: '));
+      const code = document.createElement('code');
+      code.textContent = `Downloads/${val}`;
+      downloadFolderHint.appendChild(code);
+      downloadFolderHint.appendChild(document.createTextNode(' (inside your system Downloads folder).'));
     }
   }
 

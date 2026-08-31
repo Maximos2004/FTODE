@@ -42,11 +42,11 @@
       </div>
     </header>
 
-    <!-- Detection Section (Header label above box + Content Box) -->
+    <!-- Detection Section (Header label above box + Interactive Selection Capsule + Dropdown Menu) -->
     <div class="detection-section" id="detection-section">
       <div class="detection-header-label" id="status-text">Detecting media...</div>
 
-      <section class="status-card" id="status-card">
+      <section class="status-card" id="status-card" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false">
         <div class="detection-icon-wrapper" id="detection-icon-wrapper">
           <svg id="detection-svg" width="36" height="36" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM10 14.5v-5l4 2.5-4 2.5z"/>
@@ -57,7 +57,25 @@
           <h2 class="detection-sub" id="media-title">Scanning active tab...</h2>
           <span class="detection-domain" id="source-domain">-</span>
         </div>
+
+        <div class="capsule-dropdown-cue hidden" id="capsule-dropdown-cue" title="Select Stream Source">
+          <span class="source-count-pill" id="source-count-pill">0</span>
+          <svg class="dropdown-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
       </section>
+
+      <!-- Stream Sources Selection Dropdown Menu -->
+      <div class="source-dropdown-menu hidden" id="source-dropdown-menu" role="listbox">
+        <div class="source-dropdown-header">
+          <span class="source-dropdown-title">Select Source (<span id="dropdown-source-count">0</span>)</span>
+          <span class="source-dropdown-hint">Click source to select</span>
+        </div>
+        <div class="source-dropdown-list" id="source-dropdown-list">
+          <!-- Injected selectable source items -->
+        </div>
+      </div>
     </div>
 
     <!-- Native Host Alert (if disconnected) -->
@@ -109,19 +127,6 @@
         </svg>
         <span>Cancel Download</span>
       </button>
-    </section>
-
-    <!-- Detected Streams Dropdown / Accordion (Cyan-Blue Theme) -->
-    <section class="streams-accordion hidden" id="streams-accordion">
-      <button class="accordion-toggle" id="btn-accordion-toggle">
-        <span class="toggle-title">Detected Stream Sources (<span id="accordion-count">0</span>)</span>
-        <svg class="toggle-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
-      </button>
-      <div class="streams-list hidden" id="streams-list">
-        <!-- Injected stream cards -->
-      </div>
     </section>
 
     <!-- Live Console Terminal (Only appears when top-right button clicked) -->

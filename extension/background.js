@@ -54,6 +54,26 @@ let currentJob = {
 let nativePort = null;
 
 /**
+ * Persist active download state to session storage to survive service worker restarts
+ */
+function saveCurrentJobSession() {
+  if (chrome.storage && chrome.storage.session) {
+    try {
+      chrome.storage.session.set({ ftode_current_job: currentJob }).catch(() => {});
+    } catch {}
+  }
+}
+
+// Restore active job from session storage if service worker woke up
+if (chrome.storage && chrome.storage.session) {
+  chrome.storage.session.get('ftode_current_job').then(data => {
+    if (data && data.ftode_current_job && data.ftode_current_job.status && data.ftode_current_job.status !== 'idle') {
+      currentJob = { ...currentJob, ...data.ftode_current_job };
+    }
+  }).catch(() => {});
+}
+
+/**
  * Initialize default settings in storage if not set
  */
 chrome.runtime.onInstalled.addListener(async () => {
@@ -655,6 +675,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         currentJob.speed = '';
         currentJob.eta = '';
       }
+      saveCurrentJobSession();
       sendResponse({ status: 'ok' });
       return true;
     }
@@ -1183,6 +1204,7 @@ function handleCheckUpdates() {
  * Broadcast event to popup/options listeners
  */
 function broadcastToPopup(message) {
+  saveCurrentJobSession();
   try {
     chrome.runtime.sendMessage(message).catch(() => {
       // Ignored if popup is not open

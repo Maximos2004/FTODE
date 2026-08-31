@@ -40,10 +40,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const metricEta = document.getElementById('metric-eta');
   const btnCancelJob = document.getElementById('btn-cancel-job');
 
-  const streamsAccordion = document.getElementById('streams-accordion');
-  const btnAccordionToggle = document.getElementById('btn-accordion-toggle');
-  const streamsList = document.getElementById('streams-list');
-  const accordionCount = document.getElementById('accordion-count');
+  const capsuleDropdownCue = document.getElementById('capsule-dropdown-cue');
+  const sourceCountPill = document.getElementById('source-count-pill');
+  const sourceDropdownMenu = document.getElementById('source-dropdown-menu');
+  const sourceDropdownList = document.getElementById('source-dropdown-list');
+  const dropdownSourceCount = document.getElementById('dropdown-source-count');
 
   const terminalContainer = document.getElementById('terminal-container');
   const terminalBody = document.getElementById('terminal-body');
@@ -76,6 +77,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Local state
   let currentTab = null;
   let tabMediaState = null;
+  let detectedMediaList = [];
+  let selectedMediaIndex = 0;
+  let isSourceDropdownOpen = false;
   let currentSettings = {
     videoFormat: 'MP4',
     audioFormat: 'MP3',
@@ -226,6 +230,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       return false;
     } catch {
       return false;
+    }
+  }
+
+  function extractDomainString(url) {
+    if (!url || typeof url !== 'string') return 'No source';
+    try {
+      let cleanUrl = url.trim();
+      if (cleanUrl.startsWith('blob:')) {
+        cleanUrl = cleanUrl.replace(/^blob:/i, '');
+      }
+      const u = new URL(cleanUrl);
+      const host = u.hostname.replace(/^www\./i, '');
+      return host || 'No source';
+    } catch {
+      return 'No source';
     }
   }
 
@@ -522,14 +541,18 @@ document.addEventListener('DOMContentLoaded', async () => {
    * Render either the media thumbnail or the fallback SVG icon
    */
   function renderDetectionIcon(type, thumbUrl) {
+    detectionIconWrapper.replaceChildren();
     if (thumbUrl) {
       detectionIconWrapper.classList.add('has-thumb');
-      detectionIconWrapper.innerHTML = `<img src="${thumbUrl}" class="detection-thumb-img" alt="Thumbnail" />`;
-      const img = detectionIconWrapper.querySelector('img');
+      const img = document.createElement('img');
+      img.className = 'detection-thumb-img';
+      img.alt = 'Thumbnail';
       img.onerror = () => {
         detectionIconWrapper.classList.remove('has-thumb');
         detectionIconWrapper.innerHTML = ICONS[type] || ICONS.idle;
       };
+      img.src = thumbUrl;
+      detectionIconWrapper.appendChild(img);
     } else {
       detectionIconWrapper.classList.remove('has-thumb');
       detectionIconWrapper.innerHTML = ICONS[type] || ICONS.idle;
@@ -544,6 +567,121 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /**
+   * Toggle the source selection dropdown menu
+   */
+  function toggleSourceDropdown(forceState) {
+    if (isJobActive() || detectedMediaList.length <= 1) {
+      isSourceDropdownOpen = false;
+      if (sourceDropdownMenu) sourceDropdownMenu.classList.add('hidden');
+      if (statusCard) {
+        statusCard.classList.remove('dropdown-open');
+        statusCard.setAttribute('aria-expanded', 'false');
+      }
+      return;
+    }
+
+    if (typeof forceState === 'boolean') {
+      isSourceDropdownOpen = forceState;
+    } else {
+      isSourceDropdownOpen = !isSourceDropdownOpen;
+    }
+
+    if (isSourceDropdownOpen) {
+      if (sourceDropdownMenu) sourceDropdownMenu.classList.remove('hidden');
+      if (statusCard) {
+        statusCard.classList.add('dropdown-open');
+        statusCard.setAttribute('aria-expanded', 'true');
+      }
+    } else {
+      if (sourceDropdownMenu) sourceDropdownMenu.classList.add('hidden');
+      if (statusCard) {
+        statusCard.classList.remove('dropdown-open');
+        statusCard.setAttribute('aria-expanded', 'false');
+      }
+    }
+  }
+
+  /**
+   * Render individual stream source options in the selection dropdown
+   */
+  function renderSourceDropdownList(items, selectedIdx) {
+    if (!sourceDropdownList) return;
+    sourceDropdownList.innerHTML = '';
+
+    items.forEach((item, index) => {
+      const isSelected = (index === selectedIdx);
+      const row = document.createElement('div');
+      row.className = 'source-dropdown-item' + (isSelected ? ' active' : '');
+      row.setAttribute('role', 'option');
+      row.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+      row.tabIndex = 0;
+
+      // Thumbnail / format icon
+      const thumbWrap = document.createElement('div');
+      thumbWrap.className = 'source-item-thumb ' + (item.type === 'audio' ? 'audio-type' : 'video-type');
+
+      const itemThumb = item.thumbnail || item.poster || getMediaThumbnail(item.url, tabMediaState);
+      if (itemThumb) {
+        const img = document.createElement('img');
+        img.className = 'source-item-thumb-img';
+        img.src = itemThumb;
+        img.alt = 'Thumbnail';
+        img.onerror = () => {
+          thumbWrap.innerHTML = item.type === 'audio' ? ICONS.audio : ICONS.video;
+        };
+        thumbWrap.appendChild(img);
+      } else {
+        thumbWrap.innerHTML = item.type === 'audio' ? ICONS.audio : ICONS.video;
+      }
+
+      // Information
+      const info = document.createElement('div');
+      info.className = 'source-item-info';
+
+      const title = document.createElement('span');
+      title.className = 'source-item-title';
+      title.textContent = item.title || `Media Stream #${index + 1}`;
+      title.title = item.url;
+
+      const meta = document.createElement('span');
+      meta.className = 'source-item-meta';
+      const sizeStr = item.sizeBytes ? ` • ${(item.sizeBytes / (1024 * 1024)).toFixed(1)} MB` : '';
+      const mimeStr = item.isManifest ? 'Adaptive Manifest' : (item.mimeType || (item.type || 'video').toUpperCase());
+      const resStr = (item.width && item.height) ? ` • ${item.width}x${item.height}` : '';
+      meta.textContent = `${(item.type || 'video').toUpperCase()} • ${mimeStr}${resStr}${sizeStr}`;
+
+      info.appendChild(title);
+      info.appendChild(meta);
+
+      // Checkmark icon
+      const check = document.createElement('div');
+      check.className = 'source-item-check';
+      check.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+
+      row.appendChild(thumbWrap);
+      row.appendChild(info);
+      row.appendChild(check);
+
+      const selectThisItem = (e) => {
+        e.stopPropagation();
+        selectedMediaIndex = index;
+        toggleSourceDropdown(false);
+        renderUI();
+      };
+
+      row.addEventListener('click', selectThisItem);
+      row.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          selectThisItem(e);
+        }
+      });
+
+      sourceDropdownList.appendChild(row);
+    });
+  }
+
+  /**
    * Render detection and media status in the Popup UI
    */
   function renderUI() {
@@ -553,8 +691,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isAudioDomain = !isHome && (isAudioOnlyUrl(activeUrl) || Boolean(tabMediaState && tabMediaState.isAudioOnly));
 
     // 1. Settings & Button Labels
-    const vFmt = (currentSettings.videoFormat || 'MP4').toUpperCase();
-    const aFmt = (currentSettings.audioFormat || 'MP3').toUpperCase();
     const isPlaylist = hasActiveJob ? Boolean(currentJob.isPlaylist) : (!isHome && ((tabMediaState && tabMediaState.isPlaylist) || (currentTab && isPlaylistPageUrl(currentTab.url))));
 
     if (isPlaylist && tabMediaState && tabMediaState.playlistTitle) {
@@ -565,41 +701,61 @@ document.addEventListener('DOMContentLoaded', async () => {
       footerFolder.textContent = `Folder: ${currentSettings.downloadFolder || 'FTODE'}`;
     }
 
-    // 2. Detection Status
+    // 2. Build media stream items list
     const isStream = isHome ? false : (
       (tabMediaState && tabMediaState.isStreamDomain) ||
       isStreamingUrl(activeUrl)
     );
     const rawItems = (!isHome && tabMediaState && tabMediaState.items) ? tabMediaState.items : [];
-    const uniqueItems = getDeduplicatedMediaItems(rawItems);
-    const hasVideo = !isHome && !isAudioDomain && (isStream || uniqueItems.some(i => i.type === 'video'));
-    const hasAudio = !isHome && (isAudioDomain || isStream || uniqueItems.some(i => i.type === 'audio'));
-    const hasAnyMedia = hasActiveJob || (!isHome && (isPlaylist || hasVideo || hasAudio));
-    const totalCount = isStream ? Math.max(1, uniqueItems.length) : uniqueItems.length;
+    let uniqueItems = getDeduplicatedMediaItems(rawItems);
 
-    // Display title & domain
-    let displayTitle = hasActiveJob && currentJob.title ? currentJob.title : (hasAnyMedia ? 'Media Stream' : 'No media detected');
-    let domainStr = 'No source';
+    let defaultPageTitle = (tabMediaState && tabMediaState.isPlaylist && tabMediaState.playlistTitle) ||
+                           (tabMediaState && tabMediaState.pageTitle && tabMediaState.pageTitle !== 'No media detected' && tabMediaState.pageTitle !== 'Media Stream' ? tabMediaState.pageTitle : '') ||
+                           (currentTab && currentTab.title && currentTab.title.toLowerCase() !== 'youtube' ? currentTab.title : '') ||
+                           (tabMediaState && tabMediaState.pageTitle) ||
+                           'Media Stream';
+    defaultPageTitle = defaultPageTitle.replace(/^\(\d+\+?\)\s*/, '').replace(/^[▶►]\s*/, '').trim();
+    defaultPageTitle = defaultPageTitle.replace(/^(?:\[?\s*(?:Unpaid\/Self Promotion|Self Promotion|Sponsor(?:ed)?|Interaction(?: Reminder)?|Intro|Outro|Preview|Filler|Highlight|Music: Non-Music Section|Exclusive Access|Patreon)\s*\]?)\s*[-:]?\s*/i, '');
+    defaultPageTitle = defaultPageTitle.replace(/ - YouTube$/i, '').replace(/ \| SoundCloud$/i, '').replace(/ - Vimeo$/i, '').trim();
 
-    const sourceUrlForDomain = (hasActiveJob && currentJob && (currentJob.pageUrl || currentJob.url)) || (currentTab && currentTab.url) || (tabMediaState && tabMediaState.pageUrl);
-    if (sourceUrlForDomain) {
-      try {
-        domainStr = new URL(sourceUrlForDomain).hostname.replace('www.', '');
-      } catch {}
+    if (!isHome && (isStream || isPlaylist || uniqueItems.length === 0) && (isStream || isPlaylist || (currentTab && currentTab.url && isStreamingUrl(currentTab.url)))) {
+      // If on a stream site and no network/dom items were gathered yet or 0 items, ensure the primary page stream is present
+      if (uniqueItems.length === 0) {
+        uniqueItems.push({
+          type: isAudioDomain ? 'audio' : 'video',
+          url: currentTab ? currentTab.url : (tabMediaState ? tabMediaState.pageUrl : ''),
+          mimeType: 'Adaptive Stream (HD/4K)',
+          isBlob: false,
+          isManifest: true,
+          title: defaultPageTitle,
+          thumbnail: (tabMediaState ? tabMediaState.thumbnail : null) || getMediaThumbnail(activeUrl, tabMediaState)
+        });
+      }
     }
 
-    if (hasAnyMedia) {
-      if (hasActiveJob && currentJob.title) {
-        displayTitle = currentJob.title;
-      } else if (tabMediaState && tabMediaState.isPlaylist && tabMediaState.playlistTitle) {
-        displayTitle = tabMediaState.playlistTitle;
-      } else if (tabMediaState && tabMediaState.pageTitle && tabMediaState.pageTitle !== 'No media detected' && tabMediaState.pageTitle !== 'Media Stream') {
-        displayTitle = tabMediaState.pageTitle;
-      } else if (currentTab && currentTab.title && currentTab.title.toLowerCase() !== 'youtube') {
-        displayTitle = currentTab.title;
-      } else if (tabMediaState && tabMediaState.pageTitle) {
-        displayTitle = tabMediaState.pageTitle;
-      }
+    detectedMediaList = uniqueItems;
+    if (selectedMediaIndex >= detectedMediaList.length) {
+      selectedMediaIndex = 0;
+    }
+
+    const selectedItem = detectedMediaList.length > 0 ? detectedMediaList[selectedMediaIndex] : null;
+
+    const hasVideo = !isHome && !isAudioDomain && (isStream || detectedMediaList.some(i => i.type === 'video'));
+    const hasAudio = !isHome && (isAudioDomain || isStream || detectedMediaList.some(i => i.type === 'audio'));
+    const hasAnyMedia = hasActiveJob || (!isHome && (isPlaylist || hasVideo || hasAudio || detectedMediaList.length > 0));
+
+    // Determine display title & domain
+    let displayTitle = hasActiveJob && currentJob.title ? currentJob.title : (hasAnyMedia ? (selectedItem && selectedItem.title ? selectedItem.title : defaultPageTitle) : 'No media detected');
+
+    // Website link/domain determination (prioritize the page URL, fallback to media URL)
+    const sourceUrlForDomain = (hasActiveJob && currentJob && (currentJob.pageUrl || currentJob.url)) ||
+                               (currentTab && currentTab.url) ||
+                               (tabMediaState && tabMediaState.pageUrl) ||
+                               (selectedItem && selectedItem.url) ||
+                               '';
+    const domainStr = extractDomainString(sourceUrlForDomain);
+
+    if (displayTitle) {
       displayTitle = displayTitle.replace(/^\(\d+\+?\)\s*/, '').replace(/^[▶►]\s*/, '').trim();
       displayTitle = displayTitle.replace(/^(?:\[?\s*(?:Unpaid\/Self Promotion|Self Promotion|Sponsor(?:ed)?|Interaction(?: Reminder)?|Intro|Outro|Preview|Filler|Highlight|Music: Non-Music Section|Exclusive Access|Patreon)\s*\]?)\s*[-:]?\s*/i, '');
       displayTitle = displayTitle.replace(/ - YouTube$/i, '').replace(/ \| SoundCloud$/i, '').replace(/ - Vimeo$/i, '').trim();
@@ -608,7 +764,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     mediaTitle.textContent = displayTitle;
     mediaTitle.title = displayTitle;
     sourceDomain.textContent = domainStr;
-    if (streamsCount) streamsCount.textContent = hasAnyMedia ? (isPlaylist ? 'Full Playlist Batch' : (isStream ? (isAudioDomain ? 'SoundCloud Audio Stream' : 'High Quality Media Stream') : `${totalCount} media source(s)`)) : 'No media detected';
+    sourceDomain.title = sourceUrlForDomain || domainStr;
+    if (streamsCount) streamsCount.textContent = hasAnyMedia ? (isPlaylist ? 'Full Playlist Batch' : (isStream ? (isAudioDomain ? 'SoundCloud Audio Stream' : 'High Quality Media Stream') : `${detectedMediaList.length} media source(s)`)) : 'No media detected';
 
     let thumbUrl = null;
     if (hasActiveJob) {
@@ -617,7 +774,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                  getMediaThumbnail(activeUrl, tabMediaState) ||
                  (tabMediaState ? tabMediaState.thumbnail : null);
     } else if (!isHome && hasAnyMedia) {
-      thumbUrl = (tabMediaState ? tabMediaState.thumbnail : null) ||
+      thumbUrl = (selectedItem && (selectedItem.thumbnail || selectedItem.poster)) ||
+                 (tabMediaState ? tabMediaState.thumbnail : null) ||
+                 getMediaThumbnail(selectedItem ? selectedItem.url : activeUrl, tabMediaState) ||
                  getMediaThumbnail(activeUrl, tabMediaState);
     }
 
@@ -625,6 +784,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (detectionSection) detectionSection.className = 'detection-section';
     statusCard.className = 'status-card';
     if (statusBadge) statusBadge.className = 'status-badge';
+
+    // Dropdown Cue and List Management
+    const canDropdown = !hasActiveJob && !isHome && detectedMediaList.length > 1;
+    if (canDropdown) {
+      statusCard.classList.add('is-dropdown');
+      if (capsuleDropdownCue) {
+        capsuleDropdownCue.classList.remove('hidden');
+        if (sourceCountPill) sourceCountPill.textContent = detectedMediaList.length;
+      }
+      if (dropdownSourceCount) dropdownSourceCount.textContent = detectedMediaList.length;
+      renderSourceDropdownList(detectedMediaList, selectedMediaIndex);
+      if (isSourceDropdownOpen) {
+        statusCard.classList.add('dropdown-open');
+        statusCard.setAttribute('aria-expanded', 'true');
+        if (sourceDropdownMenu) sourceDropdownMenu.classList.remove('hidden');
+      } else {
+        statusCard.classList.remove('dropdown-open');
+        statusCard.setAttribute('aria-expanded', 'false');
+        if (sourceDropdownMenu) sourceDropdownMenu.classList.add('hidden');
+      }
+    } else {
+      isSourceDropdownOpen = false;
+      statusCard.classList.remove('is-dropdown', 'dropdown-open');
+      statusCard.setAttribute('aria-expanded', 'false');
+      if (capsuleDropdownCue) capsuleDropdownCue.classList.add('hidden');
+      if (sourceDropdownMenu) sourceDropdownMenu.classList.add('hidden');
+    }
+
+    const selectedIsAudio = selectedItem ? (selectedItem.type === 'audio') : isAudioDomain;
 
     if (hasActiveJob) {
       const isJobAudio = currentJob.mediaType === 'audio' || (currentJob.format && ['mp3', 'm4a', 'wav', 'flac', 'ogg', 'aac', 'opus'].includes(String(currentJob.format).toLowerCase()));
@@ -665,7 +853,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       btnDownloadVideo.disabled = isAudioDomain;
       btnDownloadAudio.disabled = false;
-    } else if (isAudioDomain || (!hasVideo && hasAudio)) {
+    } else if (selectedIsAudio || (hasAudio && !hasVideo)) {
       if (detectionSection) detectionSection.classList.add('audio-detected');
       statusCard.classList.add('audio-detected');
       if (statusBadge) statusBadge.classList.add('audio-detected');
@@ -675,7 +863,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       btnDownloadVideo.disabled = true;
       btnDownloadAudio.disabled = false;
-    } else if (hasVideo || isStream) {
+    } else if (hasVideo || isStream || detectedMediaList.length > 0) {
       if (detectionSection) detectionSection.classList.add('video-detected');
       statusCard.classList.add('video-detected');
       if (statusBadge) statusBadge.classList.add('video-detected');
@@ -697,68 +885,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnDownloadAudio.disabled = true;
     }
 
-    // 3. Streams Accordion (Deduplicated)
-    if (hasAnyMedia && uniqueItems.length === 0) {
-      uniqueItems.push({
-        type: 'video',
-        url: currentTab ? currentTab.url : '',
-        mimeType: 'Adaptive Stream (HD/4K)',
-        isBlob: false,
-        isManifest: true,
-        title: displayTitle
-      });
-    }
-
-    if (uniqueItems.length > 0) {
-      streamsAccordion.classList.remove('hidden');
-      accordionCount.textContent = uniqueItems.length;
-      renderStreamsList(uniqueItems);
-    } else {
-      streamsAccordion.classList.add('hidden');
-    }
-
-    // 4. Active Download Job UI
+    // 3. Active Download Job UI
     renderJobState();
-  }
-
-  /**
-   * Render individual stream items inside accordion
-   */
-  function renderStreamsList(items) {
-    streamsList.innerHTML = '';
-    items.forEach((item, index) => {
-      const row = document.createElement('div');
-      row.className = 'stream-item-row';
-
-      const info = document.createElement('div');
-      info.className = 'stream-item-info';
-
-      const title = document.createElement('span');
-      title.className = 'stream-item-title';
-      title.textContent = item.title || `Media Stream #${index + 1}`;
-      title.title = item.url;
-
-      const sub = document.createElement('span');
-      sub.className = 'stream-item-sub';
-      const sizeStr = item.sizeBytes ? ` • ${(item.sizeBytes / (1024 * 1024)).toFixed(1)} MB` : '';
-      const mimeStr = item.isManifest ? 'Adaptive Manifest' : (item.mimeType || item.type.toUpperCase());
-      sub.textContent = `${item.type.toUpperCase()} • ${mimeStr}${sizeStr}`;
-
-      info.appendChild(title);
-      info.appendChild(sub);
-
-      const btn = document.createElement('button');
-      btn.className = 'btn-mini-download';
-      btn.textContent = 'Download';
-      btn.onclick = () => {
-        let downloadTarget = (currentTab && currentTab.url) || (tabMediaState && tabMediaState.pageUrl) || item.url;
-        startDownloadJob(item.type, downloadTarget, item.title || (tabMediaState ? tabMediaState.pageTitle : ''));
-      };
-
-      row.appendChild(info);
-      row.appendChild(btn);
-      streamsList.appendChild(row);
-    });
   }
 
   let errorDismissTimer = null;
@@ -1024,8 +1152,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Action Buttons
   btnDownloadVideo.addEventListener('click', () => {
+    const selectedItem = detectedMediaList.length > 0 ? detectedMediaList[selectedMediaIndex] : null;
     const pageUrl = (currentTab && currentTab.url) || (tabMediaState && tabMediaState.pageUrl) || '';
-    let targetUrl = pageUrl;
+    let targetUrl = (selectedItem && selectedItem.url) || pageUrl;
 
     const isDedicatedPlatform = pageUrl && (
       pageUrl.includes('youtube.com') ||
@@ -1036,15 +1165,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       pageUrl.includes('tiktok.com')
     );
 
-    if (!isDedicatedPlatform && tabMediaState && tabMediaState.items && tabMediaState.items.length > 0) {
-      const v = tabMediaState.items.find(i => i.type === 'video' && !i.isBlob) ||
-                tabMediaState.items.find(i => !i.isBlob);
-      if (v && v.url) {
-        targetUrl = v.url;
-      }
+    if (isDedicatedPlatform && (!selectedItem || selectedItem.isBlob || selectedItem.url === pageUrl)) {
+      targetUrl = pageUrl;
     }
 
-    let title = (tabMediaState && tabMediaState.playlistTitle) || (tabMediaState && tabMediaState.pageTitle && tabMediaState.pageTitle !== 'Media Stream' && tabMediaState.pageTitle !== 'No media detected' ? tabMediaState.pageTitle : '') || (currentTab ? currentTab.title : '');
+    let title = (selectedItem && selectedItem.title) ||
+                (tabMediaState && tabMediaState.playlistTitle) ||
+                (tabMediaState && tabMediaState.pageTitle && tabMediaState.pageTitle !== 'Media Stream' && tabMediaState.pageTitle !== 'No media detected' ? tabMediaState.pageTitle : '') ||
+                (currentTab ? currentTab.title : '');
     if (title) {
       title = title.replace(/ - YouTube$/i, '').replace(/ \| SoundCloud$/i, '').replace(/ - Vimeo$/i, '').trim();
     }
@@ -1052,8 +1180,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   btnDownloadAudio.addEventListener('click', () => {
+    const selectedItem = detectedMediaList.length > 0 ? detectedMediaList[selectedMediaIndex] : null;
     const pageUrl = (currentTab && currentTab.url) || (tabMediaState && tabMediaState.pageUrl) || '';
-    let targetUrl = pageUrl;
+    let targetUrl = (selectedItem && selectedItem.url) || pageUrl;
 
     const isDedicatedPlatform = pageUrl && (
       pageUrl.includes('youtube.com') ||
@@ -1064,27 +1193,48 @@ document.addEventListener('DOMContentLoaded', async () => {
       pageUrl.includes('tiktok.com')
     );
 
-    if (!isDedicatedPlatform && tabMediaState && tabMediaState.items && tabMediaState.items.length > 0) {
-      const a = tabMediaState.items.find(i => i.type === 'audio' && !i.isBlob) ||
-                tabMediaState.items.find(i => !i.isBlob);
-      if (a && a.url) {
-        targetUrl = a.url;
-      }
+    if (isDedicatedPlatform && (!selectedItem || selectedItem.isBlob || selectedItem.url === pageUrl)) {
+      targetUrl = pageUrl;
     }
 
-    let title = (tabMediaState && tabMediaState.playlistTitle) || (tabMediaState && tabMediaState.pageTitle && tabMediaState.pageTitle !== 'Media Stream' && tabMediaState.pageTitle !== 'No media detected' ? tabMediaState.pageTitle : '') || (currentTab ? currentTab.title : '');
+    let title = (selectedItem && selectedItem.title) ||
+                (tabMediaState && tabMediaState.playlistTitle) ||
+                (tabMediaState && tabMediaState.pageTitle && tabMediaState.pageTitle !== 'Media Stream' && tabMediaState.pageTitle !== 'No media detected' ? tabMediaState.pageTitle : '') ||
+                (currentTab ? currentTab.title : '');
     if (title) {
       title = title.replace(/ - YouTube$/i, '').replace(/ \| SoundCloud$/i, '').replace(/ - Vimeo$/i, '').trim();
     }
     startDownloadJob('audio', targetUrl, title);
   });
 
-  btnCancelJob.addEventListener('click', async () => {
-    if (currentJob) {
-      currentJob.status = 'cancelled';
-      renderJobState();
+  // Main Capsule selection dropdown toggle
+  statusCard.addEventListener('click', (e) => {
+    if (detectedMediaList.length > 1 && !isJobActive()) {
+      toggleSourceDropdown();
     }
-    await chrome.runtime.sendMessage({ type: 'CANCEL_DOWNLOAD' });
+  });
+
+  statusCard.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      if (detectedMediaList.length > 1 && !isJobActive()) {
+        e.preventDefault();
+        toggleSourceDropdown();
+      }
+    }
+  });
+
+  // Close dropdown on click outside or Escape
+  document.addEventListener('click', (e) => {
+    if (!isSourceDropdownOpen) return;
+    if (statusCard && !statusCard.contains(e.target) && sourceDropdownMenu && !sourceDropdownMenu.contains(e.target)) {
+      toggleSourceDropdown(false);
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isSourceDropdownOpen) {
+      toggleSourceDropdown(false);
+    }
   });
 
   // Top header actions
@@ -1106,17 +1256,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.runtime.openOptionsPage();
   });
 
-  // Accordion toggle
-  btnAccordionToggle.addEventListener('click', () => {
-    const isHidden = streamsList.classList.contains('hidden');
-    const icon = btnAccordionToggle.querySelector('.toggle-icon');
-    if (isHidden) {
-      streamsList.classList.remove('hidden');
-      icon.classList.add('expanded');
-    } else {
-      streamsList.classList.add('hidden');
-      icon.classList.remove('expanded');
+  btnCancelJob.addEventListener('click', async () => {
+    if (currentJob) {
+      currentJob.status = 'cancelled';
+      renderJobState();
     }
+    await chrome.runtime.sendMessage({ type: 'CANCEL_DOWNLOAD' });
   });
 
   // Terminal actions
