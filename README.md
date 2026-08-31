@@ -32,7 +32,7 @@ Yes I use Opera Don't Judge me xP
 - **1-Click Downloads:** Download video (MP4/WEBM/MKV) or music (MP3/FLAC/WAV) with a single click.
 - **Playlist & Batch Downloads:** Download entire playlists and albums in 1 click.
 - **Multi-Site Support:** Works seamlessly on YouTube, SoundCloud, Vimeo, Twitch, Reddit, and hundreds more.
-- **Zero Setup for Tools:** You don't need to manually install Python, `yt-dlp`, or `ffmpeg`. The setup script configures everything for you automatically!
+- **Zero Setup for Tools:** You don't need to manually install `Python`, `yt-dlp`, or `ffmpeg`. The setup script configures everything for you automatically!
 - **Auto Stream Detection:** Detects videos playing on the page and direct stream links.
 - **Dark & Light Mode:** Looks clean and matches your style.
 - **Customizable:** Change download formats, quality (up to 8K), and choose where your files get saved.
