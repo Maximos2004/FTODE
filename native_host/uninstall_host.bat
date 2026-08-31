@@ -21,6 +21,28 @@ if errorlevel 1 (
     echo [v] Registry keys removed successfully!
 )
 
+set "TARGET_DIR=%LOCALAPPDATA%\FTODE"
+set "PY_INSTALLER="
+if exist "%TARGET_DIR%\.ftode_python_installer.exe" set "PY_INSTALLER=%TARGET_DIR%\.ftode_python_installer.exe"
+if exist "%SCRIPT_DIR%.ftode_python_installer.exe" set "PY_INSTALLER=%SCRIPT_DIR%.ftode_python_installer.exe"
+
+if defined PY_INSTALLER (
+    echo [*] Python was automatically installed by FTODE Setup.
+    echo [*] Uninstalling Python from your system...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "$proc = Start-Process -FilePath '!PY_INSTALLER!' -ArgumentList '/uninstall', '/passive' -Wait -PassThru; " ^
+        "Remove-Item '!PY_INSTALLER!' -Force -ErrorAction SilentlyContinue"
+    echo [v] Python has been uninstalled successfully.
+    echo.
+) else (
+    echo [*] Python was not installed by FTODE (leaving existing Python installation intact).
+)
+
+if exist "%SCRIPT_DIR%bin" (
+    echo [*] Cleaning up downloaded tools from %SCRIPT_DIR%bin...
+    rmdir /s /q "%SCRIPT_DIR%bin" >nul 2>&1
+)
+
 echo.
 echo ===================================================
 echo   Native Host Uninstalled Successfully!

@@ -601,7 +601,7 @@ def handle_ping(payload):
 
     send_message({
         'status': 'pong',
-        'version': '1.0.1',
+        'version': '1.0.2',
         'python_version': sys.version.split()[0],
         'ytdlp_available': ytdlp_bin is not None,
         'ytdlp_path': ytdlp_bin,
@@ -723,17 +723,16 @@ def is_homepage_or_feed(url):
 
         if path in ('/', '', '/home', '/index.html', '/index.php'):
             return True
-        if 'youtube.com' in host or 'youtu.be' in host:
-            if path in ('/watch', '/embed') or path.startswith(('/shorts/', '/live/')):
+        if 'youtube.com' in host:
+            if path in ('/watch', '/embed', '/clip') or path.startswith(('/shorts/', '/live/', '/embed/', '/clip/')):
                 return False
             if path == '/playlist' and 'list=' in search:
                 return False
-            if (
-                path in ('/', '') or
-                path.startswith(('/feed', '/channel', '/c/', '/user/', '/@')) or
-                path in ('/results', '/gaming', '/explore', '/trending')
-            ):
+            return True
+        if 'youtu.be' in host:
+            if path in ('/', ''):
                 return True
+            return False
         if 'twitch.tv' in host and (path in ('/', '/directory') or path.startswith(('/directory/', '/p/'))):
             return True
         if 'soundcloud.com' in host and (path in ('/', '/discover', '/stream', '/feed', '/charts', '/search') or path.startswith('/you/')):

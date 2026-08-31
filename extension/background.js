@@ -34,7 +34,9 @@ const tabMediaStore = new Map();
 let currentJob = {
   id: null,
   url: '',
+  pageUrl: '',
   title: '',
+  thumbnail: null,
   mediaType: 'video',
   format: 'mp4',
   status: 'idle', // 'idle' | 'downloading' | 'remuxing' | 'complete' | 'error'
@@ -131,6 +133,45 @@ function getDeduplicatedMediaItems(items) {
 }
 
 /**
+ * Extract best video thumbnail URL from standard streaming platforms
+ */
+function getMediaThumbnail(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    if (host.includes('youtube.com')) {
+      if (u.searchParams.has('v')) {
+        return `https://i.ytimg.com/vi/${u.searchParams.get('v')}/mqdefault.jpg`;
+      }
+      const parts = u.pathname.split('/').filter(Boolean);
+      const shortsIdx = parts.indexOf('shorts');
+      if (shortsIdx !== -1 && parts[shortsIdx + 1]) {
+        return `https://i.ytimg.com/vi/${parts[shortsIdx + 1]}/mqdefault.jpg`;
+      }
+      const embedIdx = parts.indexOf('embed');
+      if (embedIdx !== -1 && parts[embedIdx + 1]) {
+        return `https://i.ytimg.com/vi/${parts[embedIdx + 1]}/mqdefault.jpg`;
+      }
+      const liveIdx = parts.indexOf('live');
+      if (liveIdx !== -1 && parts[liveIdx + 1]) {
+        return `https://i.ytimg.com/vi/${parts[liveIdx + 1]}/mqdefault.jpg`;
+      }
+      const vIdx = parts.indexOf('v');
+      if (vIdx !== -1 && parts[vIdx + 1]) {
+        return `https://i.ytimg.com/vi/${parts[vIdx + 1]}/mqdefault.jpg`;
+      }
+    } else if (host.includes('youtu.be')) {
+      const id = u.pathname.replace(/^\//, '').split('/')[0].split('?')[0];
+      if (id) return `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Update Chrome extension badge for a tab based on detected media count
  */
 function updateTabBadge(tabId) {
@@ -201,27 +242,20 @@ function isHomePageOrFeed(url) {
     }
 
     // YouTube home feeds & navigation
-    if (host.includes('youtube.com') || host.includes('youtu.be')) {
-      if (path === '/watch' || path.startsWith('/shorts/') || path.startsWith('/live/') || path.startsWith('/embed/')) {
+    if (host.includes('youtube.com')) {
+      if (path === '/watch' || path.startsWith('/shorts/') || path.startsWith('/live/') || path.startsWith('/embed/') || path.startsWith('/clip/')) {
         return false;
       }
       if (path === '/playlist' && search.includes('list=')) {
         return false;
       }
-      if (
-        path === '/' || path === '' ||
-        path.startsWith('/feed') ||
-        path === '/results' ||
-        path === '/gaming' ||
-        path === '/explore' ||
-        path === '/trending' ||
-        path.startsWith('/channel') ||
-        path.startsWith('/c/') ||
-        path.startsWith('/user/') ||
-        path.startsWith('/@')
-      ) {
+      return true;
+    }
+    if (host.includes('youtu.be')) {
+      if (path === '/' || path === '') {
         return true;
       }
+      return false;
     }
 
     // Twitch
@@ -812,12 +846,18 @@ async function handleStartDownload(msg) {
       isPlaylist = true;
     }
 
+    const activeThumb = msg.thumbnail ||
+                        (tabId && tabMediaStore.has(tabId) ? tabMediaStore.get(tabId).thumbnail : null) ||
+                        getMediaThumbnail(pageUrl) ||
+                        getMediaThumbnail(msg.url);
+
     currentJob = {
       id: 'job_' + Date.now(),
       tabId: tabId,
       url: msg.url,
       pageUrl: pageUrl,
       title: msg.title || (tabId && tabMediaStore.has(tabId) ? tabMediaStore.get(tabId).pageTitle : 'Media Download'),
+      thumbnail: activeThumb,
       mediaType: finalMediaType,
       format: targetFormat,
       downloadFolder: settings.downloadFolder || 'FTODE',

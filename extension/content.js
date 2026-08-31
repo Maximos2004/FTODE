@@ -68,27 +68,20 @@
       }
 
       // YouTube home feeds & navigation
-      if (host.includes('youtube.com') || host.includes('youtu.be')) {
-        if (path === '/watch' || path.startsWith('/shorts/') || path.startsWith('/live/') || path.startsWith('/embed/')) {
+      if (host.includes('youtube.com')) {
+        if (path === '/watch' || path.startsWith('/shorts/') || path.startsWith('/live/') || path.startsWith('/embed/') || path.startsWith('/clip/')) {
           return false;
         }
         if (path === '/playlist' && search.includes('list=')) {
           return false;
         }
-        if (
-          path === '/' || path === '' ||
-          path.startsWith('/feed') ||
-          path === '/results' ||
-          path === '/gaming' ||
-          path === '/explore' ||
-          path === '/trending' ||
-          path.startsWith('/channel') ||
-          path.startsWith('/c/') ||
-          path.startsWith('/user/') ||
-          path.startsWith('/@')
-        ) {
+        return true;
+      }
+      if (host.includes('youtu.be')) {
+        if (path === '/' || path === '') {
           return true;
         }
+        return false;
       }
 
       // Twitch

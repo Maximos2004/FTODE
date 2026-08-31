@@ -2,9 +2,10 @@
 """
 Finally that online downloader extension (FTODE) - Build & Release Packaging Tool
 Creates clean, branded release packages:
-1. FTODE-Extension-v{version}.zip (Universal browser extension)
-2. FTODE-v{version}-Windows.zip   (Self-contained 1-Click Windows release bundle)
-3. FTODE-v{version}-Linux.zip     (Self-contained 1-Click Linux release bundle)
+1. FTODE-v{version}-Windows.zip   (Self-contained 1-Click Windows release bundle)
+2. FTODE-v{version}-Linux.zip     (Self-contained 1-Click Linux release bundle)
+3. FTODE-Extension-Chrome-v{version}.zip  (Chrome, Edge, Opera, Brave extension)
+4. FTODE-Extension-Firefox-v{version}.zip (Firefox extension)
 """
 
 import os
@@ -59,8 +60,8 @@ STEP 1: Run Setup (Do this once)
    your browsers.
 3. When you see "Setup Complete!", press any key to close.
 
-* Note: Make sure Python 3.8+ is installed (from python.org or the
-  Microsoft Store) with "Add Python to PATH" enabled.
+* Note: Setup will automatically install Python if it is not already present
+  on your system.
 
 
 STEP 2: Add Extension to Your Browser
@@ -154,9 +155,9 @@ def get_version():
     try:
         with open(manifest_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            return data.get('version', '1.0.1')
+            return data.get('version', '1.0.2')
     except Exception:
-        return '1.0.1'
+        return '1.0.2'
 
 
 def should_exclude(file_or_dir_name):
@@ -243,19 +244,12 @@ def build_extension_archives(version, dist_path):
                     zf.write(full_path, rel_path)
                 firefox_count += 1
 
-    # Default universal extension alias pointing to Chrome build
-    universal_zip_name = f"FTODE-Extension-v{version}.zip"
-    universal_zip_path = os.path.join(dist_path, universal_zip_name)
-    shutil.copyfile(chrome_zip_path, universal_zip_path)
-
     chrome_size = os.path.getsize(chrome_zip_path)
     firefox_size = os.path.getsize(firefox_zip_path)
-    universal_size = os.path.getsize(universal_zip_path)
 
     return (
         chrome_zip_name, chrome_zip_path, chrome_count, chrome_size,
-        firefox_zip_name, firefox_zip_path, firefox_count, firefox_size,
-        universal_zip_name, universal_zip_path, universal_size
+        firefox_zip_name, firefox_zip_path, firefox_count, firefox_size
     )
 
 
@@ -283,22 +277,68 @@ title FTODE - 1-Click Host Setup
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
-REM ---------------------------------------------------------
-REM Check if Python is installed and accessible
-REM ---------------------------------------------------------
-python -c "import sys; assert sys.version_info >= (3, 7)" >nul 2>&1
-if errorlevel 1 (
-    where py >nul 2>&1
-    if errorlevel 1 (
-        goto :python_missing
-    )
-)
-
 echo ===================================================
 echo   FTODE - 1-Click Host Setup (Windows v{version})
 echo   Finally that online downloader extension
 echo ===================================================
 echo.
+
+REM ---------------------------------------------------------
+REM Check if Python is installed and accessible
+REM ---------------------------------------------------------
+set "PY_CMD="
+python -c "import sys; assert sys.version_info >= (3, 8)" >nul 2>&1
+if not errorlevel 1 (
+    set "PY_CMD=python"
+) else (
+    py -3 -c "import sys; assert sys.version_info >= (3, 8)" >nul 2>&1
+    if not errorlevel 1 (
+        set "PY_CMD=py -3"
+    )
+)
+
+if not defined PY_CMD (
+    echo [*] Python 3.8+ was not detected on your system.
+    echo [*] Downloading and installing Python automatically...
+    echo.
+
+    set "FTODE_DATA=%LOCALAPPDATA%\\FTODE"
+    if not exist "!FTODE_DATA!" mkdir "!FTODE_DATA!" >nul 2>&1
+
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "$arch = if ([IntPtr]::Size -eq 8) {{ 'amd64' }} else {{ 'win32' }}; " ^
+        "$installerUrl = \\"https://www.python.org/ftp/python/3.12.8/python-3.12.8-$arch.exe\\"; " ^
+        "$installerPath = Join-Path $env:LOCALAPPDATA 'FTODE\\.ftode_python_installer.exe'; " ^
+        "Write-Host '[*] Downloading Python from python.org...' -ForegroundColor Cyan; " ^
+        "(New-Object System.Net.WebClient).DownloadFile($installerUrl, $installerPath); " ^
+        "Write-Host '[*] Installing Python (with PATH configured)...' -ForegroundColor Cyan; " ^
+        "$proc = Start-Process -FilePath $installerPath -ArgumentList '/passive', 'InstallAllUsers=0', 'PrependPath=1', 'Include_test=0', 'SimpleInstall=1' -Wait -PassThru; " ^
+        "if ($proc.ExitCode -ne 0) {{ exit $proc.ExitCode }}"
+
+    for /f "tokens=2*" %%A in ('reg query "HKCU\\Environment" /v Path 2^>nul') do set "PATH=%%B;!PATH!"
+    for /f "tokens=2*" %%A in ('reg query "HKLM\\System\\CurrentControlSet\\Control\\Session Manager\\Environment" /v Path 2^>nul') do set "PATH=%%B;!PATH!"
+
+    python -c "import sys; assert sys.version_info >= (3, 8)" >nul 2>&1
+    if not errorlevel 1 (
+        set "PY_CMD=python"
+    ) else (
+        py -3 -c "import sys; assert sys.version_info >= (3, 8)" >nul 2>&1
+        if not errorlevel 1 (
+            set "PY_CMD=py -3"
+        ) else if exist "%LOCALAPPDATA%\\Programs\\Python\\Python312\\python.exe" (
+            set "PATH=%LOCALAPPDATA%\\Programs\\Python\\Python312;%LOCALAPPDATA%\\Programs\\Python\\Python312\\Scripts;!PATH!"
+            set "PY_CMD=python"
+        ) else (
+            echo.
+            echo [!] Automated Python installation could not be completed.
+            echo     Please install Python from: https://www.python.org/downloads/
+            echo     (Make sure to check "Add python.exe to PATH" during installation)
+            echo.
+            pause
+            exit /b 1
+        )
+    )
+)
 
 set "TARGET_DIR=%LOCALAPPDATA%\\FTODE"
 if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
@@ -316,50 +356,6 @@ if exist "%TARGET_DIR%\\install_host.bat" (
     pause
 )
 exit /b %ERRORLEVEL%
-
-:python_missing
-color 0C 2>nul
-cls
-echo ==============================================================================
-echo.
-echo   #####  #   # ##### #   #  ###  #   #
-echo   #   #   # #    #   #   # #   # ##  #
-echo   #####    #     #   ##### #   # # # #
-echo   #        #     #   #   # #   # #  ##
-echo   #        #     #   #   #  ###  #   #
-echo.
-echo   #   #  ###  #####   ### #   #  ### #####   ###  #     #     ##### ####
-echo   ##  # #   #   #      #  ##  # #      #    #   # #     #     #     #   #
-echo   # # # #   #   #      #  # # #  ###   #    ##### #     #     ###   #   #
-echo   #  ## #   #   #      #  #  ##     #  #    #   # #     #     #     #   #
-echo   #   #  ###    #     ### #   #  ###   #    #   # ##### ##### ##### ####
-echo.
-echo ==============================================================================
-echo  [X] FATAL ERROR: PYTHON IS NOT INSTALLED OR NOT IN PATH
-echo ==============================================================================
-echo.
-echo  FTODE requires Python 3.8 or newer to run the background downloader engine.
-echo.
-echo  ==========================================================================
-echo  HOW TO INSTALL PYTHON:
-echo  ==========================================================================
-echo  1. Download Python from: https://www.python.org/downloads/
-echo     (or install Python from the Microsoft Store)
-echo.
-echo  2. CRITICAL STEP DURING INSTALLATION:
-echo     [IMPORTANT] Make sure to CHECK the box at the bottom of the installer:
-echo         [X] Add python.exe to PATH
-echo.
-echo  3. After Python finishes installing, run this Setup again.
-echo  ==========================================================================
-echo.
-set /p "OPEN_PY=Would you like to open the Python download page now? (Y/N): "
-if /i "!OPEN_PY!"=="Y" (
-    start https://www.python.org/downloads/
-)
-echo.
-pause
-exit /b 1
 """
 
 
@@ -386,8 +382,20 @@ reg delete "HKCU\\Software\\Microsoft\\Edge\\NativeMessagingHosts\\com.ftode.hos
 reg delete "HKCU\\Software\\Chromium\\NativeMessagingHosts\\com.ftode.host" /f >nul 2>&1
 reg delete "HKCU\\Software\\Mozilla\\NativeMessagingHosts\\com.ftode.host" /f >nul 2>&1
 
+if exist "%TARGET_DIR%\\.ftode_python_installer.exe" (
+    echo [*] Python was automatically installed by FTODE Setup.
+    echo [*] Uninstalling Python from your system...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "$proc = Start-Process -FilePath '%TARGET_DIR%\\.ftode_python_installer.exe' -ArgumentList '/uninstall', '/passive' -Wait -PassThru; " ^
+        "Remove-Item '%TARGET_DIR%\\.ftode_python_installer.exe' -Force -ErrorAction SilentlyContinue"
+    echo [v] Python has been uninstalled successfully.
+    echo.
+) else (
+    echo [*] Python was not installed by FTODE (leaving existing Python installation intact).
+)
+
 if exist "%TARGET_DIR%" (
-    echo [*] Removing installed backend files from %TARGET_DIR%...
+    echo [*] Removing installed backend files and tools (yt-dlp, FFmpeg) from %TARGET_DIR%...
     rmdir /s /q "%TARGET_DIR%" >nul 2>&1
 )
 
@@ -498,7 +506,6 @@ def build_windows_release_zip(version, dist_path, chrome_ext_path, firefox_ext_p
         zf.writestr(os.path.join(base_folder, 'FTODE Host Uninstall.bat'), uninstall_bat)
         zf.write(chrome_ext_path, os.path.join(base_folder, 'FTODE-Extension-Chrome.zip'))
         zf.write(firefox_ext_path, os.path.join(base_folder, 'FTODE-Extension-Firefox.zip'))
-        zf.write(chrome_ext_path, os.path.join(base_folder, 'FTODE-Extension.zip'))
         zf.writestr(os.path.join(base_folder, 'Instructions.txt'), INSTRUCTIONS_WINDOWS_TEXT)
 
     for attempt in range(10):
@@ -536,7 +543,6 @@ def build_linux_release_zip(version, dist_path, chrome_ext_path, firefox_ext_pat
 
         zf.write(chrome_ext_path, os.path.join(base_folder, 'FTODE-Extension-Chrome.zip'))
         zf.write(firefox_ext_path, os.path.join(base_folder, 'FTODE-Extension-Firefox.zip'))
-        zf.write(chrome_ext_path, os.path.join(base_folder, 'FTODE-Extension.zip'))
         zf.writestr(os.path.join(base_folder, 'Instructions.txt'), INSTRUCTIONS_LINUX_TEXT)
 
     for attempt in range(10):
@@ -574,8 +580,7 @@ def main():
     print("\n[*] Packaging Browser Extension archives...")
     (
         chrome_name, chrome_path, chrome_count, chrome_size,
-        firefox_name, firefox_path, firefox_count, firefox_size,
-        uni_name, uni_path, uni_size
+        firefox_name, firefox_path, firefox_count, firefox_size
     ) = build_extension_archives(version, DIST_DIR)
     print(f"    [v] Chrome / Opera / Edge: {chrome_name} ({chrome_count} files, {format_size(chrome_size)})")
     print(f"    [v] Mozilla Firefox:       {firefox_name} ({firefox_count} files, {format_size(firefox_size)})")

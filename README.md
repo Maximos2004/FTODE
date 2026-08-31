@@ -38,6 +38,9 @@ Yes I use Opera Don't Judge me xP
 - **Customizable:** Change download formats, quality (up to 8K), and choose where your files get saved.
 - **Live Progress:** Shows download speed, percentage, and ETA in the popup.
 
+> ⚠️ **Note on DRM-Protected Websites:**  
+> FTODE **does not support DRM-encrypted platforms** (such as **Spotify**, **Netflix**, **Disney+**, **Apple Music**, etc.) because they use Widevine DRM protection.
+
 ### 🌐 Works Across Your Favorite Platforms
 Download from SoundCloud, Vimeo, Twitch, Reddit, and more:
 
@@ -52,8 +55,8 @@ Download from SoundCloud, Vimeo, Twitch, Reddit, and more:
 ### What you need:
 - **Windows 10/11** or **Linux**
 - **A Browser** (dah xP)
-- **Python 3.8+** installed:
-  - **Windows:** Download from [python.org](https://www.python.org/downloads/) *(Make sure to check "Add Python to PATH")* or *Download it from the [Microsoft Store](https://apps.microsoft.com/detail/9PNRBTZXMB4Z?hl=en-us&gl=NL&ocid=pdpshare)*
+- **Python 3.8+**:
+  - **Windows:** `setup.bat` will **automatically download and install Python for you** if it is not already installed! *(You can also install it manually from [python.org](https://www.python.org/downloads/) or the [Microsoft Store](https://apps.microsoft.com/detail/9PNRBTZXMB4Z?hl=en-us&gl=NL&ocid=pdpshare)).*
   - **Linux:** Comes pre-installed on most distros, or install with `sudo apt install python3 ffmpeg` / `sudo pacman -S python ffmpeg`
 
 ---
@@ -73,7 +76,7 @@ Download from SoundCloud, Vimeo, Twitch, Reddit, and more:
 ---
 
 ### Step 2: Run Setup
-- **Windows:** Double-click **`setup.bat`**
+- **Windows:** Double-click **`setup.bat`** *(it will verify Python, install it automatically if missing, register the native host, and bootstrap `yt-dlp` and `ffmpeg`)*
 - **Linux:** Open a terminal in this folder and run **`bash setup.sh`**
 
 It will connect the extension with Python and make sure `yt-dlp` and `ffmpeg` are ready. Done!
@@ -125,10 +128,11 @@ Right-click the extension icon and choose **Options** (or click the gear icon in
 
 If you want to package the project into zip files to share:
 - Run **`build.bat`** (or `python build.py`).
-- It automatically creates 2 standalone release bundles in `dist/`:
-  - **`FTODE-v1.0.1-Windows.zip`** (for Windows users)
-  - **`FTODE-v1.0.1-Linux.zip`** (for Linux users)
-  - **`FTODE-Extension-v1.0.1.zip`** (universal extension)
+- It automatically creates standalone release bundles in `dist/`:
+  - **`FTODE-v1.0.2-Windows.zip`** (for Windows users)
+  - **`FTODE-v1.0.2-Linux.zip`** (for Linux users)
+  - **`FTODE-Extension-Chrome-v1.0.2.zip`** (Chrome / Chromium extension)
+  - **`FTODE-Extension-Firefox-v1.0.2.zip`** (Firefox extension)
 
 ---
 

@@ -116,27 +116,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       // YouTube home feeds & navigation
-      if (host.includes('youtube.com') || host.includes('youtu.be')) {
-        if (path === '/watch' || path.startsWith('/shorts/') || path.startsWith('/live/') || path.startsWith('/embed/')) {
+      if (host.includes('youtube.com')) {
+        if (path === '/watch' || path.startsWith('/shorts/') || path.startsWith('/live/') || path.startsWith('/embed/') || path.startsWith('/clip/')) {
           return false;
         }
         if (path === '/playlist' && search.includes('list=')) {
           return false;
         }
-        if (
-          path === '/' || path === '' ||
-          path.startsWith('/feed') ||
-          path === '/results' ||
-          path === '/gaming' ||
-          path === '/explore' ||
-          path === '/trending' ||
-          path.startsWith('/channel') ||
-          path.startsWith('/c/') ||
-          path.startsWith('/user/') ||
-          path.startsWith('/@')
-        ) {
+        return true;
+      }
+      if (host.includes('youtu.be')) {
+        if (path === '/' || path === '') {
           return true;
         }
+        return false;
       }
 
       // Twitch
@@ -554,38 +547,20 @@ document.addEventListener('DOMContentLoaded', async () => {
    * Render detection and media status in the Popup UI
    */
   function renderUI() {
-    if (isJobActive()) {
-      renderJobState();
-      return;
-    }
-
-    if (progressSection) progressSection.classList.add('hidden');
-    if (actionGrid) actionGrid.classList.remove('hidden');
-
+    const hasActiveJob = isJobActive();
     const isHome = currentTab && isHomePageOrFeed(currentTab.url);
-    const activeUrl = (currentTab && currentTab.url) || (tabMediaState && tabMediaState.pageUrl) || '';
-    const isAudioDomain = !isHome && (isAudioOnlyUrl(activeUrl) || (tabMediaState && tabMediaState.isAudioOnly));
+    const activeUrl = (hasActiveJob && currentJob && (currentJob.pageUrl || currentJob.url)) || (currentTab && currentTab.url) || (tabMediaState && tabMediaState.pageUrl) || '';
+    const isAudioDomain = !isHome && (isAudioOnlyUrl(activeUrl) || Boolean(tabMediaState && tabMediaState.isAudioOnly));
 
     // 1. Settings & Button Labels
     const vFmt = (currentSettings.videoFormat || 'MP4').toUpperCase();
     const aFmt = (currentSettings.audioFormat || 'MP3').toUpperCase();
-    const isPlaylist = !isHome && ((tabMediaState && tabMediaState.isPlaylist) || (currentTab && isPlaylistPageUrl(currentTab.url)));
-
-    if (isPlaylist) {
-      labelVideo.textContent = isAudioDomain ? `Playlist (Audio Only)` : `Download Playlist (${vFmt})`;
-      labelAudio.textContent = `Download Playlist (${aFmt})`;
-    } else if (isAudioDomain) {
-      labelVideo.textContent = `Audio Only (${aFmt})`;
-      labelAudio.textContent = `Download ${aFmt}`;
-    } else {
-      labelVideo.textContent = `Download ${vFmt}`;
-      labelAudio.textContent = `Download ${aFmt}`;
-    }
-    if (badgeVideoFormat) badgeVideoFormat.textContent = vFmt;
-    if (badgeAudioFormat) badgeAudioFormat.textContent = aFmt;
+    const isPlaylist = hasActiveJob ? Boolean(currentJob.isPlaylist) : (!isHome && ((tabMediaState && tabMediaState.isPlaylist) || (currentTab && isPlaylistPageUrl(currentTab.url))));
 
     if (isPlaylist && tabMediaState && tabMediaState.playlistTitle) {
       footerFolder.textContent = `Current Playlist: ${tabMediaState.playlistTitle}`;
+    } else if (isPlaylist && hasActiveJob && currentJob.title) {
+      footerFolder.textContent = `Current Playlist: ${currentJob.title}`;
     } else {
       footerFolder.textContent = `Folder: ${currentSettings.downloadFolder || 'FTODE'}`;
     }
@@ -599,22 +574,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     const uniqueItems = getDeduplicatedMediaItems(rawItems);
     const hasVideo = !isHome && !isAudioDomain && (isStream || uniqueItems.some(i => i.type === 'video'));
     const hasAudio = !isHome && (isAudioDomain || isStream || uniqueItems.some(i => i.type === 'audio'));
-    const hasAnyMedia = !isHome && (isPlaylist || hasVideo || hasAudio);
+    const hasAnyMedia = hasActiveJob || (!isHome && (isPlaylist || hasVideo || hasAudio));
     const totalCount = isStream ? Math.max(1, uniqueItems.length) : uniqueItems.length;
 
     // Display title & domain
-    let displayTitle = hasAnyMedia ? 'Media Stream' : 'No media detected';
+    let displayTitle = hasActiveJob && currentJob.title ? currentJob.title : (hasAnyMedia ? 'Media Stream' : 'No media detected');
     let domainStr = 'No source';
 
-    if (currentTab && currentTab.url) {
+    const sourceUrlForDomain = (hasActiveJob && currentJob && (currentJob.pageUrl || currentJob.url)) || (currentTab && currentTab.url) || (tabMediaState && tabMediaState.pageUrl);
+    if (sourceUrlForDomain) {
       try {
-        domainStr = new URL(currentTab.url).hostname.replace('www.', '');
+        domainStr = new URL(sourceUrlForDomain).hostname.replace('www.', '');
       } catch {}
     }
 
     if (hasAnyMedia) {
-      if (tabMediaState && tabMediaState.isPlaylist && tabMediaState.playlistTitle) {
-        displayTitle = `(from playlist ${tabMediaState.playlistTitle})`;
+      if (hasActiveJob && currentJob.title) {
+        displayTitle = currentJob.title;
+      } else if (tabMediaState && tabMediaState.isPlaylist && tabMediaState.playlistTitle) {
+        displayTitle = tabMediaState.playlistTitle;
       } else if (tabMediaState && tabMediaState.pageTitle && tabMediaState.pageTitle !== 'No media detected' && tabMediaState.pageTitle !== 'Media Stream') {
         displayTitle = tabMediaState.pageTitle;
       } else if (currentTab && currentTab.title && currentTab.title.toLowerCase() !== 'youtube') {
@@ -632,14 +610,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     sourceDomain.textContent = domainStr;
     if (streamsCount) streamsCount.textContent = hasAnyMedia ? (isPlaylist ? 'Full Playlist Batch' : (isStream ? (isAudioDomain ? 'SoundCloud Audio Stream' : 'High Quality Media Stream') : `${totalCount} media source(s)`)) : 'No media detected';
 
-    const thumbUrl = !isHome && hasAnyMedia ? getMediaThumbnail(activeUrl, tabMediaState) : null;
+    let thumbUrl = null;
+    if (hasActiveJob) {
+      thumbUrl = (currentJob && currentJob.thumbnail) ||
+                 getMediaThumbnail(currentJob ? (currentJob.pageUrl || currentJob.url) : null, tabMediaState) ||
+                 getMediaThumbnail(activeUrl, tabMediaState) ||
+                 (tabMediaState ? tabMediaState.thumbnail : null);
+    } else if (!isHome && hasAnyMedia) {
+      thumbUrl = (tabMediaState ? tabMediaState.thumbnail : null) ||
+                 getMediaThumbnail(activeUrl, tabMediaState);
+    }
 
     // Status Card & Header Label Theming
     if (detectionSection) detectionSection.className = 'detection-section';
     statusCard.className = 'status-card';
     if (statusBadge) statusBadge.className = 'status-badge';
 
-    if (isPlaylist) {
+    if (hasActiveJob) {
+      const isJobAudio = currentJob.mediaType === 'audio' || (currentJob.format && ['mp3', 'm4a', 'wav', 'flac', 'ogg', 'aac', 'opus'].includes(String(currentJob.format).toLowerCase()));
+      const isJobPlaylist = Boolean(currentJob.isPlaylist);
+
+      if (isJobPlaylist) {
+        if (detectionSection) detectionSection.classList.add('playlist-detected');
+        statusCard.classList.add('playlist-detected');
+        if (statusBadge) statusBadge.classList.add('playlist-detected');
+        statusText.textContent = isJobAudio ? 'Downloading Audio Playlist...' : 'Downloading Playlist...';
+        if (mediaTypeTag) mediaTypeTag.textContent = 'PLAYLIST';
+        renderDetectionIcon('playlist', thumbUrl);
+      } else if (isJobAudio) {
+        if (detectionSection) detectionSection.classList.add('audio-detected');
+        statusCard.classList.add('audio-detected');
+        if (statusBadge) statusBadge.classList.add('audio-detected');
+        statusText.textContent = 'Downloading Audio...';
+        if (mediaTypeTag) mediaTypeTag.textContent = 'AUDIO';
+        renderDetectionIcon('audio', thumbUrl);
+      } else {
+        if (detectionSection) detectionSection.classList.add('video-detected');
+        statusCard.classList.add('video-detected');
+        if (statusBadge) statusBadge.classList.add('video-detected');
+        statusText.textContent = 'Downloading Video...';
+        if (mediaTypeTag) mediaTypeTag.textContent = 'VIDEO';
+        renderDetectionIcon('video', thumbUrl);
+      }
+
+      btnDownloadVideo.disabled = true;
+      btnDownloadAudio.disabled = true;
+    } else if (isPlaylist) {
       if (detectionSection) detectionSection.classList.add('playlist-detected');
       statusCard.classList.add('playlist-detected');
       if (statusBadge) statusBadge.classList.add('playlist-detected');
@@ -947,13 +963,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       showTerminal(true);
     }
 
+    const activeThumb = getMediaThumbnail(url, tabMediaState) ||
+                        (tabMediaState ? tabMediaState.thumbnail : null) ||
+                        getMediaThumbnail(currentTab ? currentTab.url : null, tabMediaState);
+
     // Smoothly transition from action buttons to download progress bar
     currentJob = {
       id: 'job_' + Date.now(),
       status: 'downloading',
+      url: url,
+      pageUrl: currentTab ? currentTab.url : url,
       mediaType: targetType,
       format: format,
       title: title,
+      thumbnail: activeThumb,
       percent: 0,
       speed: 'Starting...',
       eta: '--:--',
@@ -972,6 +995,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           url: url,
           pageUrl: currentTab ? currentTab.url : url,
           title: title,
+          thumbnail: activeThumb,
           mediaType: targetType,
           targetType: targetType,
           format: format,

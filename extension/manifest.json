@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Finally that online downloader extension (FTODE)",
   "short_name": "FTODE",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzo5tVCGtIFJkLvd95zP/WUIkCMn4AhwPlcZVsb8+dUOJ/fmJchSFEA6lPdYh6eM0xqKSFlLW+Bx2cSDqqf0gp2cp611pSU9lp4NGsIzjD9ZbM3IQ/hXHNyuJE+2kQRBJQ4h7bg6+7VgDLNt9PbcHcpXye+GZMYr+/EL0A/QIHqMF0rufcVXTVygnHXYqGWWNhQA1UAHaixaGSXyU9pPqG0/x67pUQpqd2MB+800lSXkAZGI0p7WVD5KXvOeSwvzxcOPdnP9jTDPxzTdb0C11ijZD22t80uBQuWzECjJti+M0hyDtWOsKrE/HIGj9pBDpQusSKHQ5CiSBMI4cia7zTQIDAQAB",
   "browser_specific_settings": {
     "gecko": {

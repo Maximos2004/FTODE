@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (extensionIdVal) extensionIdVal.textContent = extId;
 
   const manifest = chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
-  const currentExtVersion = manifest?.version || '1.0.1';
+  const currentExtVersion = manifest?.version || '1.0.2';
   const footerVersionEl = document.getElementById('footer-version');
   if (footerVersionEl) footerVersionEl.textContent = `v${currentExtVersion}`;
 
@@ -60,6 +60,35 @@ document.addEventListener('DOMContentLoaded', async () => {
   const extUpdateCard = document.getElementById('ext-update-card');
   const extNewVersion = document.getElementById('ext-new-version');
   const btnGithubDownload = document.getElementById('btn-github-download');
+  const btnDismissUpdate = document.getElementById('btn-dismiss-update');
+  let currentUpdateResult = null;
+
+  async function isUpdateDismissed(version) {
+    try {
+      const data = await chrome.storage.local.get('dismissed_ext_update_version');
+      return data.dismissed_ext_update_version === version;
+    } catch {
+      return false;
+    }
+  }
+
+  async function setUpdateDismissed(version) {
+    try {
+      await chrome.storage.local.set({ dismissed_ext_update_version: version });
+    } catch {}
+  }
+
+  if (btnDismissUpdate) {
+    btnDismissUpdate.addEventListener('click', async () => {
+      if (extUpdateCard) {
+        extUpdateCard.classList.add('hidden');
+      }
+      if (currentUpdateResult && currentUpdateResult.latestVersion) {
+        await setUpdateDismissed(currentUpdateResult.latestVersion);
+      }
+      showToastNotification('Update notification dismissed');
+    });
+  }
 
   if (diagExtVersion) {
     diagExtVersion.textContent = `v${currentExtVersion}`;
@@ -139,7 +168,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   /**
    * Applies update check result to GUI badge and alert box
    */
-  function applyExtensionUpdateUI(updateResult) {
+  async function applyExtensionUpdateUI(updateResult, isManualCheck = false) {
+    currentUpdateResult = updateResult;
     if (updateResult && updateResult.hasUpdate) {
       if (diagExtVersion) {
         diagExtVersion.textContent = `v${currentExtVersion} (Update: v${updateResult.latestVersion})`;
@@ -150,7 +180,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (btnGithubDownload && updateResult.releaseUrl) {
           btnGithubDownload.href = updateResult.releaseUrl;
         }
-        extUpdateCard.classList.remove('hidden');
+        const dismissed = await isUpdateDismissed(updateResult.latestVersion);
+        if (isManualCheck || !dismissed) {
+          extUpdateCard.classList.remove('hidden');
+        } else {
+          extUpdateCard.classList.add('hidden');
+        }
       }
     } else {
       if (diagExtVersion) {
@@ -464,7 +499,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         let extUpdateResult = null;
         if (extUpdate.status === 'fulfilled') {
           extUpdateResult = extUpdate.value;
-          applyExtensionUpdateUI(extUpdateResult);
+          await applyExtensionUpdateUI(extUpdateResult, true);
         }
 
         let hostSuccess = false;
@@ -593,5 +628,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Background host test & GitHub update check (silent, no popup toast on startup)
   testHost(false);
-  checkGitHubExtensionUpdate().then(applyExtensionUpdateUI).catch(() => {});
+  checkGitHubExtensionUpdate().then((res) => applyExtensionUpdateUI(res, false)).catch(() => {});
 });

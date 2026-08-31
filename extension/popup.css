@@ -899,6 +899,8 @@ svg circle {
   border: 1.5px solid var(--accent-video);
   color: var(--accent-video);
   background: rgba(107, 210, 157, 0.06);
+  flex-shrink: 0;
+  white-space: nowrap;
   transition: var(--theme-transition);
 }
 
@@ -913,6 +915,7 @@ svg circle {
   height: 6px;
   border-radius: 50%;
   background: currentColor;
+  flex-shrink: 0;
   transition: var(--theme-transition);
 }
 
@@ -921,11 +924,20 @@ svg circle {
   border: 1.5px solid var(--accent-playlist);
   color: var(--accent-playlist);
   background: rgba(56, 189, 248, 0.06);
-  max-width: 190px;
+  min-width: 0;
+  flex: 1;
+  max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: var(--theme-transition);
+}
+
+#footer-folder {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
 }
 
 /* Custom Scrollbar */
