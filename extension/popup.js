@@ -345,6 +345,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // immediately dismiss it so the user can download right away without waiting!
         if (currentJob && (currentJob.status === 'complete' || currentJob.status === 'error' || currentJob.status === 'cancelled')) {
           currentJob.status = 'idle';
+          currentJob.thumbnail = null;
+          currentJob.url = '';
+          currentJob.pageUrl = '';
+          currentJob.title = '';
           chrome.runtime.sendMessage({ type: 'DISMISS_JOB' }).catch(() => {});
         }
       }
@@ -357,6 +361,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           tabMediaState.hasMediaTags = false;
           tabMediaState.pageTitle = 'No media detected';
           tabMediaState.playlistTitle = null;
+          tabMediaState.thumbnail = null;
         }
       } else if (currentTab && currentTab.url && isStreamingUrl(currentTab.url)) {
         if (!tabMediaState) {
@@ -368,6 +373,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             isAudioOnly: isAudioOnlyUrl(currentTab.url),
             isPlaylist: isPlaylistPageUrl(currentTab.url),
             hasMediaTags: false,
+            thumbnail: null,
             items: []
           };
         } else {
@@ -388,7 +394,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 tabMediaState.isPlaylist = res.isPlaylist !== undefined ? res.isPlaylist : tabMediaState.isPlaylist;
                 tabMediaState.isStreamDomain = res.isStreamDomain !== undefined ? res.isStreamDomain : isStreamingUrl(tabMediaState.pageUrl);
                 tabMediaState.hasMediaTags = res.hasMediaTags;
-                tabMediaState.thumbnail = res.thumbnail || tabMediaState.thumbnail;
+                tabMediaState.thumbnail = res.thumbnail || null;
                 if (Array.isArray(res.items)) {
                   const existingNetworkItems = (tabMediaState.items || []).filter(i => i.source === 'network');
                   const domItems = res.items.map(i => ({ ...i, source: 'dom' }));
@@ -501,8 +507,7 @@ document.addEventListener('DOMContentLoaded', async () => {
    * Extract best video or media thumbnail URL
    */
   function getMediaThumbnail(url, state) {
-    if (state && state.thumbnail) return state.thumbnail;
-    if (!url) return null;
+    if (!url) return (state && state.thumbnail) || null;
     try {
       const u = new URL(url);
       const host = u.hostname.toLowerCase();
@@ -531,9 +536,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const id = u.pathname.replace(/^\//, '').split('/')[0].split('?')[0];
         if (id) return `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
       }
-      return null;
+      return (state && state.thumbnail) || null;
     } catch {
-      return null;
+      return (state && state.thumbnail) || null;
     }
   }
 
@@ -770,14 +775,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     let thumbUrl = null;
     if (hasActiveJob) {
       thumbUrl = (currentJob && currentJob.thumbnail) ||
-                 getMediaThumbnail(currentJob ? (currentJob.pageUrl || currentJob.url) : null, tabMediaState) ||
-                 getMediaThumbnail(activeUrl, tabMediaState) ||
-                 (tabMediaState ? tabMediaState.thumbnail : null);
+                 (tabMediaState ? tabMediaState.thumbnail : null) ||
+                 getMediaThumbnail(currentJob ? (currentJob.pageUrl || currentJob.url) : null, tabMediaState);
     } else if (!isHome && hasAnyMedia) {
       thumbUrl = (selectedItem && (selectedItem.thumbnail || selectedItem.poster)) ||
                  (tabMediaState ? tabMediaState.thumbnail : null) ||
-                 getMediaThumbnail(selectedItem ? selectedItem.url : activeUrl, tabMediaState) ||
-                 getMediaThumbnail(activeUrl, tabMediaState);
+                 getMediaThumbnail(selectedItem ? selectedItem.url : activeUrl, tabMediaState);
     }
 
     // Status Card & Header Label Theming
@@ -897,7 +900,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       setTimeout(() => {
         progressSection.classList.add('hidden');
         progressSection.classList.remove('is-leaving');
-        if (currentJob) currentJob.status = 'idle';
+        if (currentJob) {
+          currentJob.status = 'idle';
+          currentJob.thumbnail = null;
+          currentJob.url = '';
+          currentJob.pageUrl = '';
+          currentJob.title = '';
+        }
         if (actionGrid) {
           actionGrid.classList.remove('hidden');
           actionGrid.classList.add('is-entering');
@@ -906,7 +915,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         chrome.runtime.sendMessage({ type: 'DISMISS_JOB' }).catch(() => {});
       }, 180);
     } else {
-      if (currentJob) currentJob.status = 'idle';
+      if (currentJob) {
+        currentJob.status = 'idle';
+        currentJob.thumbnail = null;
+        currentJob.url = '';
+        currentJob.pageUrl = '';
+        currentJob.title = '';
+      }
       if (actionGrid) actionGrid.classList.remove('hidden');
       chrome.runtime.sendMessage({ type: 'DISMISS_JOB' }).catch(() => {});
     }
@@ -1091,8 +1106,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       showTerminal(true);
     }
 
-    const activeThumb = getMediaThumbnail(url, tabMediaState) ||
-                        (tabMediaState ? tabMediaState.thumbnail : null) ||
+    const activeThumb = (tabMediaState ? tabMediaState.thumbnail : null) ||
+                        getMediaThumbnail(url, tabMediaState) ||
                         getMediaThumbnail(currentTab ? currentTab.url : null, tabMediaState);
 
     // Smoothly transition from action buttons to download progress bar

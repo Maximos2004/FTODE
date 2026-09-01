@@ -46,6 +46,9 @@ echo.
         "$installerPath = Join-Path $env:LOCALAPPDATA 'FTODE\.ftode_python_installer.exe'; " ^
         "Write-Host '[*] Downloading Python from python.org...' -ForegroundColor Cyan; " ^
         "(New-Object System.Net.WebClient).DownloadFile($installerUrl, $installerPath); " ^
+        "if (-not (Test-Path $installerPath) -or (Get-Item $installerPath).Length -lt 20000000) { " ^
+        "    Write-Host '[X] Python installer download failed or file is incomplete.' -ForegroundColor Red; exit 1; " ^
+        "}; " ^
         "Write-Host '[*] Installing Python (with PATH configured)...' -ForegroundColor Cyan; " ^
         "$proc = Start-Process -FilePath $installerPath -ArgumentList '/passive', 'InstallAllUsers=0', 'PrependPath=1', 'Include_test=0', 'SimpleInstall=1' -Wait -PassThru; " ^
         "if ($proc.ExitCode -ne 0) { exit $proc.ExitCode }"

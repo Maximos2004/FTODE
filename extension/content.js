@@ -444,31 +444,48 @@
    */
   function getBestThumbnail() {
     try {
-      // 1. YouTube video ID (mqdefault is true 16:9 without baked-in 4:3 black bars)
+      // 1. YouTube direct video ID from page URL
       const ytId = getYouTubeVideoId(window.location.href);
       if (ytId) {
         return `https://i.ytimg.com/vi/${ytId}/mqdefault.jpg`;
       }
 
-      // 2. OpenGraph Image
+      // 2. YouTube playlist: extract video ID from first video link in playlist
+      const firstYtLink = document.querySelector('ytd-playlist-video-renderer a[href*="watch?v="], ytd-playlist-header-renderer a[href*="watch?v="], ytd-playlist-thumbnail a[href*="watch?v="], a#thumbnail[href*="watch?v="], a[href*="/watch?v="]');
+      if (firstYtLink && firstYtLink.href) {
+        const plVideoId = getYouTubeVideoId(firstYtLink.href);
+        if (plVideoId) {
+          return `https://i.ytimg.com/vi/${plVideoId}/mqdefault.jpg`;
+        }
+      }
+
+      // 3. YouTube playlist/channel image elements from DOM
+      const plImgs = document.querySelectorAll('ytd-playlist-header-renderer img, ytd-playlist-video-renderer img, ytd-playlist-thumbnail img, #thumbnail-container img, yt-image img, a#thumbnail img');
+      for (const img of plImgs) {
+        if (img && img.src && isValidHttpUrl(img.src) && !img.src.includes('data:') && (img.src.includes('ytimg.com') || img.src.includes('ggpht.com'))) {
+          return img.src;
+        }
+      }
+
+      // 4. OpenGraph Image
       const ogImage = document.querySelector('meta[property="og:image"]');
       if (ogImage && ogImage.content && isValidHttpUrl(ogImage.content)) {
         return ogImage.content.startsWith('//') ? 'https:' + ogImage.content : ogImage.content;
       }
 
-      // 3. Twitter Image
+      // 5. Twitter Image
       const twImage = document.querySelector('meta[name="twitter:image"], meta[name="twitter:image:src"]');
       if (twImage && twImage.content && isValidHttpUrl(twImage.content)) {
         return twImage.content.startsWith('//') ? 'https:' + twImage.content : twImage.content;
       }
 
-      // 4. HTML5 Video Poster
+      // 5. HTML5 Video Poster
       const mainVideo = document.querySelector('video.html5-main-video') || document.querySelector('video[poster]');
       if (mainVideo && mainVideo.poster && isValidHttpUrl(mainVideo.poster)) {
         return mainVideo.poster;
       }
 
-      // 5. Image src link tag
+      // 6. Image src link tag
       const linkImage = document.querySelector('link[rel="image_src"]');
       if (linkImage && linkImage.href && isValidHttpUrl(linkImage.href)) {
         return linkImage.href;

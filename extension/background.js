@@ -207,14 +207,12 @@ function updateTabBadge(tabId) {
     return;
   }
 
-  if (state.isStreamDomain) {
-    chrome.action.setBadgeText({ text: '1', tabId }).catch(() => {});
-    chrome.action.setBadgeBackgroundColor({ color: state.isAudioOnly ? '#e89f41' : '#6bd29d', tabId }).catch(() => {});
-    return;
-  }
-
   const uniqueItems = getDeduplicatedMediaItems(state.items);
-  const count = uniqueItems.length;
+  let count = uniqueItems.length;
+
+  if (state.isStreamDomain && count === 0) {
+    count = 1;
+  }
 
   if (count > 0) {
     const hasVideo = uniqueItems.some(i => i.type === 'video');
@@ -225,7 +223,7 @@ function updateTabBadge(tabId) {
     } else if (hasAudio || state.isAudioOnly) {
       chrome.action.setBadgeBackgroundColor({ color: '#e89f41', tabId }).catch(() => {});
     } else {
-      chrome.action.setBadgeBackgroundColor({ color: '#38bdf8', tabId }).catch(() => {});
+      chrome.action.setBadgeBackgroundColor({ color: '#6bd29d', tabId }).catch(() => {});
     }
   } else {
     chrome.action.setBadgeText({ text: '', tabId }).catch(() => {});
@@ -626,7 +624,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           state.isAudioOnly = payload.isAudioOnly || isAudioOnlyUrl(state.pageUrl);
           state.isPlaylist = payload.isPlaylist !== undefined ? payload.isPlaylist : isPlaylistUrl(state.pageUrl);
           state.hasMediaTags = payload.hasMediaTags;
-          state.thumbnail = payload.thumbnail || state.thumbnail;
+          state.thumbnail = payload.thumbnail || null;
 
           // Fresh top-level scan: replace DOM items and merge with existing network items cleanly
           if (Array.isArray(payload.items)) {
@@ -669,11 +667,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case 'DISMISS_JOB': {
-      if (currentJob && (currentJob.status === 'complete' || currentJob.status === 'error' || currentJob.status === 'cancelled')) {
+      if (currentJob) {
         currentJob.status = 'idle';
         currentJob.percent = 0;
         currentJob.speed = '';
         currentJob.eta = '';
+        currentJob.url = '';
+        currentJob.pageUrl = '';
+        currentJob.title = '';
+        currentJob.thumbnail = null;
+        currentJob.resultFile = null;
+        currentJob.logs = [];
       }
       saveCurrentJobSession();
       sendResponse({ status: 'ok' });
@@ -747,6 +751,11 @@ async function handleGetPopupState(requestedTabId) {
       currentJob.percent = 0;
       currentJob.speed = '';
       currentJob.eta = '';
+      currentJob.url = '';
+      currentJob.pageUrl = '';
+      currentJob.title = '';
+      currentJob.thumbnail = null;
+      currentJob.resultFile = null;
     }
   }
 
@@ -1007,6 +1016,11 @@ function handleNativeHostMessage(msg) {
         currentJob.percent = 0;
         currentJob.speed = '';
         currentJob.eta = '';
+        currentJob.url = '';
+        currentJob.pageUrl = '';
+        currentJob.title = '';
+        currentJob.thumbnail = null;
+        currentJob.resultFile = null;
         broadcastToPopup({ type: 'JOB_UPDATED', job: currentJob });
       }
     }, 4000);
@@ -1030,6 +1044,11 @@ function handleNativeHostMessage(msg) {
         currentJob.percent = 0;
         currentJob.speed = '';
         currentJob.eta = '';
+        currentJob.url = '';
+        currentJob.pageUrl = '';
+        currentJob.title = '';
+        currentJob.thumbnail = null;
+        currentJob.resultFile = null;
         broadcastToPopup({ type: 'JOB_UPDATED', job: currentJob });
       }
     }, 5000);
@@ -1050,6 +1069,11 @@ function handleNativeHostMessage(msg) {
         currentJob.percent = 0;
         currentJob.speed = '';
         currentJob.eta = '';
+        currentJob.url = '';
+        currentJob.pageUrl = '';
+        currentJob.title = '';
+        currentJob.thumbnail = null;
+        currentJob.resultFile = null;
         broadcastToPopup({ type: 'JOB_UPDATED', job: currentJob });
       }
     }, 5000);
