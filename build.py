@@ -54,11 +54,12 @@ INSTRUCTIONS_WINDOWS_TEXT = """=================================================
 
 STEP 1: Run Setup (Do this once)
 --------------------------------------------------------------------
-1. Double-click "FTODE Host Setup.bat" in this folder.
-2. The setup will automatically install the background downloader
+1. Extract all files from this ZIP folder (Important: Extract before running).
+2. In the extracted folder, double-click "FTODE Host Setup.bat".
+3. The setup will automatically install the background downloader
    engine (Host backend) into your system and register it across
    your browsers.
-3. When you see "Setup Complete!", press any key to close.
+4. When you see "Setup Complete!", press any key to close.
 
 * Note: Setup will automatically install Python if it is not already present
   on your system.
@@ -107,7 +108,7 @@ INSTRUCTIONS_LINUX_TEXT = """===================================================
 
 STEP 1: Run Setup (Do this once)
 --------------------------------------------------------------------
-1. Open a terminal in this folder and run:
+1. Extract this zip archive completely and open a terminal in the extracted folder:
    bash "FTODE Host Setup.sh"
    (or make executable: chmod +x "FTODE Host Setup.sh" && ./"FTODE Host Setup.sh")
 
@@ -271,7 +272,13 @@ def get_native_host_base64_payload():
     return base64.b64encode(buf.getvalue()).decode('ascii')
 
 
+def chunk_b64(b64_str, chunk_size=76):
+    """Splits a long base64 string into lines of fixed length (default 76 chars)."""
+    return '\n'.join(b64_str[i:i + chunk_size] for i in range(0, len(b64_str), chunk_size))
+
+
 def get_setup_bat_content(version, payload_b64):
+    payload_chunked = chunk_b64(payload_b64)
     return f"""@echo off
 title FTODE - 1-Click Host Setup
 setlocal enabledelayedexpansion
@@ -312,6 +319,9 @@ if not defined PY_CMD (
         "$installerPath = Join-Path $env:LOCALAPPDATA 'FTODE\\.ftode_python_installer.exe'; " ^
         "Write-Host '[*] Downloading Python from python.org...' -ForegroundColor Cyan; " ^
         "(New-Object System.Net.WebClient).DownloadFile($installerUrl, $installerPath); " ^
+        "if (-not (Test-Path $installerPath) -or (Get-Item $installerPath).Length -lt 20000000) {{ " ^
+        "    Write-Host '[X] Python installer download failed or file is incomplete.' -ForegroundColor Red; exit 1; " ^
+        "}}; " ^
         "Write-Host '[*] Installing Python (with PATH configured)...' -ForegroundColor Cyan; " ^
         "$proc = Start-Process -FilePath $installerPath -ArgumentList '/passive', 'InstallAllUsers=0', 'PrependPath=1', 'Include_test=0', 'SimpleInstall=1' -Wait -PassThru; " ^
         "if ($proc.ExitCode -ne 0) {{ exit $proc.ExitCode }}"
@@ -333,7 +343,7 @@ if not defined PY_CMD (
             echo.
             echo [!] Automated Python installation could not be completed.
             echo     Please install Python from: https://www.python.org/downloads/
-            echo     (Make sure to check "Add python.exe to PATH" during installation)
+            echo     (Make sure to check \\"Add python.exe to PATH\\" during installation)
             echo.
             pause
             exit /b 1
@@ -346,17 +356,39 @@ if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
 
 echo [*] Installing FTODE Host backend to %TARGET_DIR%...
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$b64='{payload_b64}'; $bytes=[Convert]::FromBase64String($b64); $tempZip=[IO.Path]::Combine([IO.Path]::GetTempPath(), 'ftode_setup_host.zip'); [IO.File]::WriteAllBytes($tempZip, $bytes); Expand-Archive -Path $tempZip -DestinationPath '%TARGET_DIR%' -Force; Remove-Item $tempZip -Force;"
+set "FTODE_SELF=%~f0"
+set "FTODE_DEST=%TARGET_DIR%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$self = $env:FTODE_SELF; $dest = $env:FTODE_DEST; " ^
+    "$lines = [IO.File]::ReadAllLines($self); " ^
+    "$idx = [Array]::IndexOf($lines, ':::PAYLOAD_START:::'); " ^
+    "if ($idx -ge 0) {{ " ^
+    "    $b64 = ([String]::Join('', $lines[($idx+1)..($lines.Length-1)])).Trim(); " ^
+    "    $bytes = [Convert]::FromBase64String($b64); " ^
+    "    $tempZip = [IO.Path]::Combine([IO.Path]::GetTempPath(), [IO.Path]::GetRandomFileName() + '.zip'); " ^
+    "    [IO.File]::WriteAllBytes($tempZip, $bytes); " ^
+    "    Expand-Archive -Path $tempZip -DestinationPath $dest -Force; " ^
+    "    Remove-Item $tempZip -Force -ErrorAction SilentlyContinue; " ^
+    "}}"
 
 if exist "%TARGET_DIR%\\install_host.bat" (
     cd /d "%TARGET_DIR%"
     call install_host.bat
 ) else (
-    echo [v] Setup Complete! Extension is ready to use.
+    color 0C 2>nul
+    echo.
+    echo ===================================================
+    echo  [X] FATAL ERROR: Host backend installation failed!
+    echo      Setup files could not be extracted.
+    echo ===================================================
     echo.
     pause
+    exit /b 1
 )
 exit /b %ERRORLEVEL%
+
+:::PAYLOAD_START:::
+{payload_chunked}
 """
 
 
@@ -446,12 +478,17 @@ mkdir -p "$TARGET_DIR"
 
 echo "[*] Installing FTODE Host backend to $TARGET_DIR..."
 
-python3 -c "import base64, io, zipfile, os; b64='{payload_b64}'; raw=base64.b64decode(b64); z=zipfile.ZipFile(io.BytesIO(raw)); z.extractall(os.path.expanduser('~/.local/share/FTODE'))"
+python3 - << 'EOF'
+import base64, io, zipfile, os
+b64 = \"\"\"{payload_b64}\"\"\"
+raw = base64.b64decode(b64)
+z = zipfile.ZipFile(io.BytesIO(raw))
+z.extractall(os.path.expanduser('~/.local/share/FTODE'))
+EOF
 
-chmod +x "$TARGET_DIR/host.py" "$TARGET_DIR/run_host.sh" 2>/dev/null || true
+chmod +x "$TARGET_DIR/host.py" "$TARGET_DIR/run_host.sh" "$TARGET_DIR/install_host.sh" 2>/dev/null || true
 
 if [ -f "$TARGET_DIR/install_host.sh" ]; then
-    chmod +x "$TARGET_DIR/install_host.sh"
     bash "$TARGET_DIR/install_host.sh"
 else
     python3 "$TARGET_DIR/host.py" --install
