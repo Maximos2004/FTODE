@@ -74,6 +74,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     </svg>`
   };
 
+  /**
+   * Safely injects SVG XML without triggering innerHTML security linter warnings
+   */
+  function setSvgIcon(container, svgString) {
+    if (!container) return;
+    container.replaceChildren();
+    try {
+      const parsed = new DOMParser().parseFromString(svgString, 'image/svg+xml').documentElement;
+      if (parsed && parsed.nodeName.toLowerCase() === 'svg') {
+        container.appendChild(parsed);
+      }
+    } catch {}
+  }
+
   // Local state
   let currentTab = null;
   let tabMediaState = null;
@@ -554,13 +568,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       img.alt = 'Thumbnail';
       img.onerror = () => {
         detectionIconWrapper.classList.remove('has-thumb');
-        detectionIconWrapper.innerHTML = ICONS[type] || ICONS.idle;
+        setSvgIcon(detectionIconWrapper, ICONS[type] || ICONS.idle);
       };
       img.src = thumbUrl;
       detectionIconWrapper.appendChild(img);
     } else {
       detectionIconWrapper.classList.remove('has-thumb');
-      detectionIconWrapper.innerHTML = ICONS[type] || ICONS.idle;
+      setSvgIcon(detectionIconWrapper, ICONS[type] || ICONS.idle);
     }
   }
 
@@ -611,7 +625,7 @@ document.addEventListener('DOMContentLoaded', async () => {
    */
   function renderSourceDropdownList(items, selectedIdx) {
     if (!sourceDropdownList) return;
-    sourceDropdownList.innerHTML = '';
+    sourceDropdownList.replaceChildren();
 
     items.forEach((item, index) => {
       const isSelected = (index === selectedIdx);
@@ -632,11 +646,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         img.src = itemThumb;
         img.alt = 'Thumbnail';
         img.onerror = () => {
-          thumbWrap.innerHTML = item.type === 'audio' ? ICONS.audio : ICONS.video;
+          setSvgIcon(thumbWrap, item.type === 'audio' ? ICONS.audio : ICONS.video);
         };
         thumbWrap.appendChild(img);
       } else {
-        thumbWrap.innerHTML = item.type === 'audio' ? ICONS.audio : ICONS.video;
+        setSvgIcon(thumbWrap, item.type === 'audio' ? ICONS.audio : ICONS.video);
       }
 
       // Information
@@ -661,7 +675,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Checkmark icon
       const check = document.createElement('div');
       check.className = 'source-item-check';
-      check.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+      setSvgIcon(check, '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>');
 
       row.appendChild(thumbWrap);
       row.appendChild(info);
@@ -1044,7 +1058,7 @@ document.addEventListener('DOMContentLoaded', async () => {
    * Render terminal logs
    */
   function renderTerminalLogs(logs) {
-    terminalBody.innerHTML = '';
+    terminalBody.replaceChildren();
     logs.forEach(line => {
       const lineDiv = document.createElement('div');
       lineDiv.className = 'term-line';
@@ -1309,7 +1323,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   btnTermClear.addEventListener('click', async () => {
-    terminalBody.innerHTML = '';
+    terminalBody.replaceChildren();
     await chrome.runtime.sendMessage({ type: 'CLEAR_LOGS' });
   });
 

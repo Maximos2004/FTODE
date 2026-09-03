@@ -1,12 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "Finally that online downloader extension (FTODE)",
+  "name": "FTODE - Finally That Online Downloader",
   "short_name": "FTODE",
   "version": "1.0.3",
   "browser_specific_settings": {
     "gecko": {
       "id": "ftode@maxakt.local",
-      "strict_min_version": "109.0"
+      "strict_min_version": "142.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   },
   "description": "High-performance media stream sniffer and video/audio downloader powered by native yt-dlp.",

@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const stepRunHint = document.getElementById('step-run-hint');
   const autoDetectRadar = document.getElementById('auto-detect-radar');
   const radarText = document.getElementById('radar-text');
+  const smartscreenTip = document.getElementById('smartscreen-tip');
 
   // Theme Toggle
   const toggleTheme = document.getElementById('toggle-theme');
@@ -403,24 +404,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (btnDlTitle) btnDlTitle.textContent = 'Download Host Setup (.exe)';
       if (stepHeading1) stepHeading1.textContent = 'Download Setup Wizard';
       if (stepArchiveName) stepArchiveName.textContent = 'FTODE-Host-Setup-Windows.exe';
-      if (stepHint1) {
-        stepHint1.innerHTML = 'Click the button above to download <code id="step-archive-name">FTODE-Host-Setup-Windows.exe</code>.';
-      }
       if (stepHeading2) stepHeading2.textContent = 'Run Setup Wizard';
       if (stepRunHint) {
-        stepRunHint.innerHTML = 'Run <code>FTODE-Host-Setup-Windows.exe</code>. The 1-click wizard configures browser registries (Firefox, Opera, Chrome, Edge), installs yt-dlp &amp; FFmpeg, and integrates with Windows Control Panel.';
+        stepRunHint.replaceChildren(
+          document.createTextNode('Run '),
+          Object.assign(document.createElement('code'), { textContent: 'FTODE-Host-Setup-Windows.exe' }),
+          document.createTextNode('. The 1-click wizard configures browser registries (Firefox, Opera, Chrome, Edge), installs yt-dlp & FFmpeg, and integrates with Windows Control Panel.')
+        );
       }
+      if (smartscreenTip) smartscreenTip.classList.remove('hidden');
     } else {
       if (btnDlTitle) btnDlTitle.textContent = 'Download Host Setup (Linux .zip)';
       if (stepHeading1) stepHeading1.textContent = 'Download & Extract Archive';
       if (stepArchiveName) stepArchiveName.textContent = 'FTODE-Host-Setup-Linux.zip';
-      if (stepHint1) {
-        stepHint1.innerHTML = 'Click the button above to download <code id="step-archive-name">FTODE-Host-Setup-Linux.zip</code> and extract all files to any folder.';
-      }
       if (stepHeading2) stepHeading2.textContent = 'Run 1-Click Setup Script';
       if (stepRunHint) {
-        stepRunHint.innerHTML = 'Open a terminal in the extracted folder and run: <code>bash "FTODE Host Setup.sh"</code>. It registers the manifest across your browsers and configures yt-dlp &amp; FFmpeg.';
+        stepRunHint.replaceChildren(
+          document.createTextNode('Open a terminal in the extracted folder and run: '),
+          Object.assign(document.createElement('code'), { textContent: 'bash "FTODE Host Setup.sh"' }),
+          document.createTextNode('. It registers the manifest across your browsers and configures yt-dlp & FFmpeg.')
+        );
       }
+      if (smartscreenTip) smartscreenTip.classList.add('hidden');
     }
   }
 
