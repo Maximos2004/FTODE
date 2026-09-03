@@ -626,7 +626,7 @@ def handle_ping(payload):
 
     send_message({
         'status': 'pong',
-        'version': '1.0.2',
+        'version': '1.0.3',
         'python_version': sys.version.split()[0],
         'ytdlp_available': ytdlp_bin is not None,
         'ytdlp_path': ytdlp_bin,
@@ -1795,15 +1795,18 @@ def install_registry(extension_id=None):
     chrome_manifest_path = os.path.join(script_dir, 'com.ftode.host.json')
     firefox_manifest_path = os.path.join(script_dir, 'com.ftode.host-firefox.json')
 
-    # 1. Chrome / Chromium Manifest
+    # 1. Chrome / Chromium / Opera Manifest
+    allowed_origins = [f"chrome-extension://{extension_id}/"]
+    default_origin = "chrome-extension://iabbelaamkcbkklcipbbkgegfenjhklc/"
+    if default_origin not in allowed_origins:
+        allowed_origins.append(default_origin)
+
     chrome_manifest_data = {
         "name": "com.ftode.host",
         "description": "Finally that online downloader extension (FTODE) Native Messaging Host",
         "path": launcher_path,
         "type": "stdio",
-        "allowed_origins": [
-            f"chrome-extension://{extension_id}/"
-        ]
+        "allowed_origins": allowed_origins
     }
     with open(chrome_manifest_path, 'w', encoding='utf-8') as f:
         json.dump(chrome_manifest_data, f, indent=2)
@@ -1826,7 +1829,10 @@ def install_registry(extension_id=None):
         reg_keys = [
             (r"Software\Google\Chrome\NativeMessagingHosts\com.ftode.host", "Google Chrome", chrome_manifest_path),
             (r"Software\Microsoft\Edge\NativeMessagingHosts\com.ftode.host", "Microsoft Edge", chrome_manifest_path),
-            (r"Software\Chromium\NativeMessagingHosts\com.ftode.host", "Chromium / Opera / Brave", chrome_manifest_path),
+            (r"Software\Chromium\NativeMessagingHosts\com.ftode.host", "Chromium / Brave", chrome_manifest_path),
+            (r"Software\Opera Software\NativeMessagingHosts\com.ftode.host", "Opera", chrome_manifest_path),
+            (r"Software\Opera Software\Opera GX\NativeMessagingHosts\com.ftode.host", "Opera GX", chrome_manifest_path),
+            (r"Software\Opera Software\Opera Stable\NativeMessagingHosts\com.ftode.host", "Opera Stable", chrome_manifest_path),
             (r"Software\Mozilla\NativeMessagingHosts\com.ftode.host", "Mozilla Firefox", firefox_manifest_path)
         ]
         for reg_key_path, browser_name, m_path in reg_keys:
@@ -1851,9 +1857,9 @@ def install_registry(extension_id=None):
             except Exception as e:
                 print(f"[x] Could not write manifest for {browser_name}: {e}")
 
-    print(f"    Chrome Manifest: {chrome_manifest_path}")
+    print(f"    Chrome/Opera Manifest: {chrome_manifest_path}")
     print(f"    Firefox Manifest: {firefox_manifest_path}")
-    print(f"    Allowed Origin: chrome-extension://{extension_id}/")
+    print(f"    Allowed Origins: {allowed_origins}")
     print(f"    Gecko Extension ID: ftode@maxakt.local")
 
 
@@ -1866,7 +1872,10 @@ def uninstall_registry():
         reg_keys = [
             (r"Software\Google\Chrome\NativeMessagingHosts\com.ftode.host", "Google Chrome"),
             (r"Software\Microsoft\Edge\NativeMessagingHosts\com.ftode.host", "Microsoft Edge"),
-            (r"Software\Chromium\NativeMessagingHosts\com.ftode.host", "Chromium / Opera / Brave"),
+            (r"Software\Chromium\NativeMessagingHosts\com.ftode.host", "Chromium / Brave"),
+            (r"Software\Opera Software\NativeMessagingHosts\com.ftode.host", "Opera"),
+            (r"Software\Opera Software\Opera GX\NativeMessagingHosts\com.ftode.host", "Opera GX"),
+            (r"Software\Opera Software\Opera Stable\NativeMessagingHosts\com.ftode.host", "Opera Stable"),
             (r"Software\Mozilla\NativeMessagingHosts\com.ftode.host", "Mozilla Firefox")
         ]
 

@@ -156,9 +156,9 @@ def get_version():
     try:
         with open(manifest_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            return data.get('version', '1.0.2')
+            return data.get('version', '1.0.3')
     except Exception:
-        return '1.0.2'
+        return '1.0.3'
 
 
 def should_exclude(file_or_dir_name):
@@ -413,6 +413,9 @@ echo [*] Removing FTODE Native Messaging Registry keys...
 reg delete "HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.ftode.host" /f >nul 2>&1
 reg delete "HKCU\\Software\\Microsoft\\Edge\\NativeMessagingHosts\\com.ftode.host" /f >nul 2>&1
 reg delete "HKCU\\Software\\Chromium\\NativeMessagingHosts\\com.ftode.host" /f >nul 2>&1
+reg delete "HKCU\\Software\\Opera Software\\NativeMessagingHosts\\com.ftode.host" /f >nul 2>&1
+reg delete "HKCU\\Software\\Opera Software\\Opera GX\\NativeMessagingHosts\\com.ftode.host" /f >nul 2>&1
+reg delete "HKCU\\Software\\Opera Software\\Opera Stable\\NativeMessagingHosts\\com.ftode.host" /f >nul 2>&1
 reg delete "HKCU\\Software\\Mozilla\\NativeMessagingHosts\\com.ftode.host" /f >nul 2>&1
 
 if exist "%TARGET_DIR%\\.ftode_python_installer.exe" (
@@ -597,6 +600,109 @@ def build_linux_release_zip(version, dist_path, chrome_ext_path, firefox_ext_pat
     return release_zip_name, release_zip_path, size
 
 
+def build_windows_host_setup_zip(version, dist_path, payload_b64):
+    """Builds the dedicated, lightweight Companion Host Setup ZIP for Windows."""
+    setup_name = "FTODE-Host-Setup-Windows.zip"
+    setup_path = os.path.join(dist_path, setup_name)
+    base_folder = f"FTODE-Host-Setup-v{version}-Windows"
+
+    setup_bat = get_setup_bat_content(version, payload_b64)
+    uninstall_bat = get_uninstall_bat_content(version)
+
+    temp_zip = os.path.join(dist_path, f"temp_host_win_{os.getpid()}.zip")
+    with zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(os.path.join(base_folder, 'FTODE Host Setup.bat'), setup_bat)
+        zf.writestr(os.path.join(base_folder, 'FTODE Host Uninstall.bat'), uninstall_bat)
+        zf.writestr(os.path.join(base_folder, 'Instructions.txt'), INSTRUCTIONS_WINDOWS_TEXT)
+
+    for attempt in range(10):
+        try:
+            if os.path.isfile(setup_path):
+                os.remove(setup_path)
+            shutil.move(temp_zip, setup_path)
+            break
+        except Exception:
+            import time
+            time.sleep(0.5)
+
+    size = os.path.getsize(setup_path)
+    return setup_name, setup_path, size
+
+
+def build_linux_host_setup_zip(version, dist_path, payload_b64):
+    """Builds the dedicated, lightweight Companion Host Setup ZIP for Linux."""
+    setup_name = "FTODE-Host-Setup-Linux.zip"
+    setup_path = os.path.join(dist_path, setup_name)
+    base_folder = f"FTODE-Host-Setup-v{version}-Linux"
+
+    setup_sh = get_setup_sh_content(version, payload_b64)
+    uninstall_sh = get_uninstall_sh_content(version)
+
+    temp_zip = os.path.join(dist_path, f"temp_host_linux_{os.getpid()}.zip")
+    with zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+        setup_info = zipfile.ZipInfo(os.path.join(base_folder, 'FTODE Host Setup.sh'))
+        setup_info.external_attr = 0o755 << 16
+        zf.writestr(setup_info, setup_sh)
+
+        uninstall_info = zipfile.ZipInfo(os.path.join(base_folder, 'FTODE Host Uninstall.sh'))
+        uninstall_info.external_attr = 0o755 << 16
+        zf.writestr(uninstall_info, uninstall_sh)
+
+        zf.writestr(os.path.join(base_folder, 'Instructions.txt'), INSTRUCTIONS_LINUX_TEXT)
+
+    for attempt in range(10):
+        try:
+            if os.path.isfile(setup_path):
+                os.remove(setup_path)
+            shutil.move(temp_zip, setup_path)
+            break
+        except Exception:
+            import time
+            time.sleep(0.5)
+
+    size = os.path.getsize(setup_path)
+    return setup_name, setup_path, size
+
+
+def find_iscc_compiler():
+    """Locates Inno Setup ISCC.exe compiler if installed."""
+    candidates = [
+        os.path.expandvars(r"%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe"),
+        r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+        r"C:\Program Files\Inno Setup 6\ISCC.exe",
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return c
+    which_iscc = shutil.which("iscc")
+    if which_iscc and os.path.isfile(which_iscc):
+        return which_iscc
+    return None
+
+
+def build_windows_inno_setup_exe(version, dist_path):
+    """Compiles installer/ftode_setup.iss into FTODE-Host-Setup-Windows.exe using Inno Setup."""
+    iscc = find_iscc_compiler()
+    if not iscc:
+        return None, None, 0
+
+    iss_file = os.path.join(ROOT_DIR, "installer", "ftode_setup.iss")
+    if not os.path.isfile(iss_file):
+        return None, None, 0
+
+    print("\n[*] Compiling Windows Inno Setup Wizard (.exe)...")
+    try:
+        cmd = [iscc, f"/DMyAppVersion={version}", iss_file]
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        exe_path = os.path.join(dist_path, "FTODE-Host-Setup-Windows.exe")
+        if os.path.isfile(exe_path):
+            size = os.path.getsize(exe_path)
+            return "FTODE-Host-Setup-Windows.exe", exe_path, size
+    except Exception as e:
+        print(f"    [!] Inno Setup compilation failed: {e}")
+    return None, None, 0
+
+
 def main():
     parser = argparse.ArgumentParser(description="FTODE Build & Distribution Packager")
     args = parser.parse_args()
@@ -626,32 +732,40 @@ def main():
     # 3. Generate native host payload
     payload_b64 = get_native_host_base64_payload()
 
-    # 4. Build Windows Release ZIP
-    print("\n[*] Packaging Windows Release ZIP...")
+    # 4. Build Windows Inno Setup Wizard (.exe)
+    inno_exe_name, inno_exe_path, inno_exe_size = build_windows_inno_setup_exe(version, DIST_DIR)
+    if inno_exe_name:
+        print(f"    [v] Inno Setup Wizard:     {inno_exe_name} ({format_size(inno_exe_size)})")
+
+    # 5. Build Dedicated Host Companion Setup Archives (Windows & Linux)
+    print("\n[*] Packaging Dedicated Companion Host Setup ZIPs...")
+    host_win_name, host_win_path, host_win_size = build_windows_host_setup_zip(version, DIST_DIR, payload_b64)
+    print(f"    [v] {host_win_name} ({format_size(host_win_size)})")
+    host_linux_name, host_linux_path, host_linux_size = build_linux_host_setup_zip(version, DIST_DIR, payload_b64)
+    print(f"    [v] {host_linux_name} ({format_size(host_linux_size)})")
+
+    # 6. Build Full Windows Release ZIP (all-in-one bundle)
+    print("\n[*] Packaging Full Windows Release ZIP...")
     win_name, win_path, win_size = build_windows_release_zip(version, DIST_DIR, chrome_path, firefox_path, payload_b64)
     print(f"    [v] {win_name} ({format_size(win_size)})")
 
-    # 5. Build Linux Release ZIP
-    print("\n[*] Packaging Linux Release ZIP...")
+    # 7. Build Full Linux Release ZIP (all-in-one bundle)
+    print("\n[*] Packaging Full Linux Release ZIP...")
     linux_name, linux_path, linux_size = build_linux_release_zip(version, DIST_DIR, chrome_path, firefox_path, payload_b64)
     print(f"    [v] {linux_name} ({format_size(linux_size)})")
 
     print("\n=====================================================")
     print(f" [SUCCESS] Standalone Release bundles created in: dist/")
     print("=====================================================")
-    print(f" 1. Windows Bundle: {win_name} ({format_size(win_size)})")
-    print(f"    |-- FTODE Host Setup.bat")
-    print(f"    |-- FTODE Host Uninstall.bat")
-    print(f"    |-- FTODE-Extension-Chrome.zip   (Chrome / Edge / Opera / Brave)")
-    print(f"    |-- FTODE-Extension-Firefox.zip  (Firefox / Floorp / LibreWolf)")
-    print(f"    |-- Instructions.txt")
+    print(f" 1. Companion Host Setup (For Store Extension Users):")
+    if inno_exe_name:
+        print(f"    |-- {inno_exe_name} [Wizard Installer] ({format_size(inno_exe_size)})")
+    print(f"    |-- {host_win_name} [Batch Script .zip] ({format_size(host_win_size)})")
+    print(f"    |-- {host_linux_name} [Linux Script .zip] ({format_size(host_linux_size)})")
     print(f"")
-    print(f" 2. Linux Bundle:   {linux_name} ({format_size(linux_size)})")
-    print(f"    |-- FTODE Host Setup.sh")
-    print(f"    |-- FTODE Host Uninstall.sh")
-    print(f"    |-- FTODE-Extension-Chrome.zip   (Chrome / Edge / Opera / Brave)")
-    print(f"    |-- FTODE-Extension-Firefox.zip  (Firefox / Floorp / LibreWolf)")
-    print(f"    |-- Instructions.txt")
+    print(f" 2. Full Bundles (Host + All Extensions):")
+    print(f"    |-- {win_name} ({format_size(win_size)})")
+    print(f"    |-- {linux_name} ({format_size(linux_size)})")
     print(f"")
     print(f" 3. Standalone Extensions:")
     print(f"    |-- {chrome_name} ({format_size(chrome_size)})")

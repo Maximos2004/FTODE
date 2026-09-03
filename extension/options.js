@@ -25,6 +25,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnCopyExtId = document.getElementById('btn-copy-ext-id');
   const diagYtdlp = document.getElementById('diag-ytdlp');
   const diagFfmpeg = document.getElementById('diag-ffmpeg');
+  const diagnosticsPanel = document.getElementById('diagnostics-panel');
+
+  // DOM Elements - Companion Setup Guide & Downloader
+  const hostSetupCard = document.getElementById('host-setup-card');
+  const hostSetupGuide = document.getElementById('host-setup-guide');
+  const tabOsWin = document.getElementById('tab-os-win');
+  const tabOsLinux = document.getElementById('tab-os-linux');
+  const btnDownloadSetup = document.getElementById('btn-download-setup');
+  const btnDlTitle = document.getElementById('btn-dl-title');
+  const stepHeading1 = document.getElementById('step-heading-1');
+  const stepHint1 = document.getElementById('step-hint-1');
+  const stepHeading2 = document.getElementById('step-heading-2');
+  const stepArchiveName = document.getElementById('step-archive-name');
+  const stepScriptName = document.getElementById('step-script-name');
+  const stepRunHint = document.getElementById('step-run-hint');
+  const autoDetectRadar = document.getElementById('auto-detect-radar');
+  const radarText = document.getElementById('radar-text');
 
   // Theme Toggle
   const toggleTheme = document.getElementById('toggle-theme');
@@ -51,7 +68,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (extensionIdVal) extensionIdVal.textContent = extId;
 
   const manifest = chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
-  const currentExtVersion = manifest?.version || '1.0.2';
+  const currentExtVersion = manifest?.version || '1.0.3';
   const footerVersionEl = document.getElementById('footer-version');
   if (footerVersionEl) footerVersionEl.textContent = `v${currentExtVersion}`;
 
@@ -373,10 +390,130 @@ document.addEventListener('DOMContentLoaded', async () => {
   const bootstrapStatusText = document.getElementById('bootstrap-status-text');
   const bootstrapFill = document.getElementById('bootstrap-fill');
 
+  // OS Tab Selection & Setup Logic
+  let selectedOS = (navigator.platform && navigator.platform.toLowerCase().includes('linux')) ? 'linux' : 'win';
+  let hostPollTimer = null;
+
+  function updateOSTab(os) {
+    selectedOS = os;
+    if (tabOsWin) tabOsWin.classList.toggle('active', os === 'win');
+    if (tabOsLinux) tabOsLinux.classList.toggle('active', os === 'linux');
+
+    if (os === 'win') {
+      if (btnDlTitle) btnDlTitle.textContent = 'Download Host Setup (.exe)';
+      if (stepHeading1) stepHeading1.textContent = 'Download Setup Wizard';
+      if (stepArchiveName) stepArchiveName.textContent = 'FTODE-Host-Setup-Windows.exe';
+      if (stepHint1) {
+        stepHint1.innerHTML = 'Click the button above to download <code id="step-archive-name">FTODE-Host-Setup-Windows.exe</code>.';
+      }
+      if (stepHeading2) stepHeading2.textContent = 'Run Setup Wizard';
+      if (stepRunHint) {
+        stepRunHint.innerHTML = 'Run <code>FTODE-Host-Setup-Windows.exe</code>. The 1-click wizard configures browser registries (Firefox, Opera, Chrome, Edge), installs yt-dlp &amp; FFmpeg, and integrates with Windows Control Panel.';
+      }
+    } else {
+      if (btnDlTitle) btnDlTitle.textContent = 'Download Host Setup (Linux .zip)';
+      if (stepHeading1) stepHeading1.textContent = 'Download & Extract Archive';
+      if (stepArchiveName) stepArchiveName.textContent = 'FTODE-Host-Setup-Linux.zip';
+      if (stepHint1) {
+        stepHint1.innerHTML = 'Click the button above to download <code id="step-archive-name">FTODE-Host-Setup-Linux.zip</code> and extract all files to any folder.';
+      }
+      if (stepHeading2) stepHeading2.textContent = 'Run 1-Click Setup Script';
+      if (stepRunHint) {
+        stepRunHint.innerHTML = 'Open a terminal in the extracted folder and run: <code>bash "FTODE Host Setup.sh"</code>. It registers the manifest across your browsers and configures yt-dlp &amp; FFmpeg.';
+      }
+    }
+  }
+
+  if (tabOsWin) tabOsWin.addEventListener('click', () => updateOSTab('win'));
+  if (tabOsLinux) tabOsLinux.addEventListener('click', () => updateOSTab('linux'));
+
+  /**
+   * Triggers direct browser download of the companion setup archive
+   */
+  async function downloadCompanionSetup() {
+    const isWin = selectedOS === 'win';
+    const targetFileName = isWin ? 'FTODE-Host-Setup-Windows.exe' : 'FTODE-Host-Setup-Linux.zip';
+    const GITHUB_REPO = 'Maximos2004/FTODE';
+    let downloadUrl = `https://github.com/${GITHUB_REPO}/releases/latest/download/${targetFileName}`;
+
+    if (btnDownloadSetup) {
+      btnDownloadSetup.classList.add('downloading');
+      btnDownloadSetup.disabled = true;
+    }
+
+    try {
+      // Query latest release assets dynamically
+      const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+        headers: { 'Accept': 'application/vnd.github.v3+json' },
+        cache: 'no-store'
+      });
+
+      if (res.ok) {
+        const releaseData = await res.json();
+        const assets = releaseData.assets || [];
+        const match = assets.find(a => a.name && (
+          a.name.toLowerCase() === targetFileName.toLowerCase() ||
+          (isWin && a.name.toLowerCase().includes('windows') && (a.name.endsWith('.exe') || a.name.endsWith('.zip'))) ||
+          (!isWin && a.name.toLowerCase().includes('linux') && a.name.endsWith('.zip'))
+        ));
+
+        if (match && match.browser_download_url) {
+          downloadUrl = match.browser_download_url;
+        } else if (releaseData.html_url) {
+          downloadUrl = releaseData.html_url;
+        }
+      }
+    } catch (e) {
+      console.warn('[Options] Dynamic release fetch error, using direct download URL:', e);
+    }
+
+    // Trigger browser download via invisible link element
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = targetFileName;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    const toastMsg = isWin
+      ? `Downloading ${targetFileName}! Run the setup wizard to connect the companion host.`
+      : `Downloading ${targetFileName}! Extract the archive and run FTODE Host Setup.sh.`;
+    showToastNotification(toastMsg);
+
+    setTimeout(() => {
+      if (btnDownloadSetup) {
+        btnDownloadSetup.classList.remove('downloading');
+        btnDownloadSetup.disabled = false;
+      }
+    }, 1500);
+
+    // Ensure polling is active so when the user runs the setup, it auto-detects immediately
+    startHostPolling();
+  }
+
+  if (btnDownloadSetup) {
+    btnDownloadSetup.addEventListener('click', downloadCompanionSetup);
+  }
+
+  function startHostPolling() {
+    if (hostPollTimer) return;
+    hostPollTimer = setInterval(async () => {
+      await testHost(false, true);
+    }, 2500);
+  }
+
+  function stopHostPolling() {
+    if (hostPollTimer) {
+      clearInterval(hostPollTimer);
+      hostPollTimer = null;
+    }
+  }
+
   /**
    * Test Native Host connectivity & retrieve versions
    */
-  async function testHost(showToast = false) {
+  async function testHost(showToast = false, isPolled = false) {
     if (showToast) {
       hostBubble.className = 'status-bubble';
       hostLabel.textContent = 'Testing Host Connection...';
@@ -387,8 +524,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       const response = await chrome.runtime.sendMessage({ type: 'TEST_HOST_CONNECTION' });
 
       if (response && response.connected) {
+        const wasDisconnected = hostBubble.classList.contains('offline');
         hostBubble.className = 'status-bubble connected';
         hostLabel.textContent = 'Connected & Operational';
+
+        // Collapse setup guide when connected
+        if (hostSetupGuide) {
+          hostSetupGuide.classList.add('hidden');
+        }
+        if (diagnosticsPanel) {
+          diagnosticsPanel.classList.remove('hidden');
+        }
+
+        stopHostPolling();
 
         const data = response.data || {};
         const formatToolVersion = (ver, isAvailable) => {
@@ -431,22 +579,37 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (showToast) {
           showToastNotification('Native host connected successfully!');
+        } else if (isPolled && wasDisconnected) {
+          showToastNotification('🎉 Companion Host Connected Successfully!');
+          if (hostSetupCard) {
+            hostSetupCard.classList.add('highlight-success');
+            setTimeout(() => hostSetupCard.classList.remove('highlight-success'), 3500);
+          }
         }
       } else {
         hostBubble.className = 'status-bubble offline';
-        hostLabel.textContent = 'Disconnected / Not Registered';
+        hostLabel.textContent = 'Disconnected / Setup Required';
         diagYtdlp.textContent = 'Host Offline';
         diagFfmpeg.textContent = 'Host Offline';
         diagYtdlp.style.color = '#f87171';
         diagFfmpeg.style.color = '#f87171';
+
+        // Show setup guide when disconnected
+        if (hostSetupGuide) {
+          hostSetupGuide.classList.remove('hidden');
+        }
+        if (autoDetectRadar) {
+          autoDetectRadar.classList.remove('hidden');
+        }
+
+        startHostPolling();
 
         try {
           localStorage.setItem('ftode_host_info', JSON.stringify({ connected: false }));
         } catch {}
 
         if (showToast) {
-          const errMsg = response ? response.error : 'Unknown host error';
-          showToastNotification('Native host offline. See setup instructions.', true);
+          showToastNotification('Native host offline. Download and run setup above.', true);
         }
       }
     } catch (err) {
@@ -454,6 +617,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       hostLabel.textContent = 'Connection Failed';
       diagYtdlp.textContent = 'Error';
       diagFfmpeg.textContent = 'Error';
+      if (hostSetupGuide) hostSetupGuide.classList.remove('hidden');
+      startHostPolling();
       if (showToast) {
         showToastNotification('Host check failed: ' + err.message, true);
       }
@@ -461,6 +626,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnTestHost.disabled = false;
     }
   }
+
+  function checkUrlHash() {
+    if (window.location.hash === '#host-setup' || window.location.hash === '#setup' || window.location.search.includes('setup=1')) {
+      if (hostSetupGuide) {
+        hostSetupGuide.classList.remove('hidden');
+      }
+      if (hostSetupCard) {
+        setTimeout(() => {
+          hostSetupCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          hostSetupCard.classList.add('highlight-pulse');
+          setTimeout(() => hostSetupCard.classList.remove('highlight-pulse'), 3000);
+        }, 150);
+      }
+    }
+  }
+
+  window.addEventListener('hashchange', checkUrlHash);
 
   // Event Listeners
   btnSaveSettings.addEventListener('click', () => saveSettings(true));
@@ -611,6 +793,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (h.connected) {
         hostBubble.className = 'status-bubble connected';
         hostLabel.textContent = 'Connected & Operational';
+        if (hostSetupGuide) hostSetupGuide.classList.add('hidden');
+        if (diagnosticsPanel) diagnosticsPanel.classList.remove('hidden');
         if (h.ytdlp_version) {
           diagYtdlp.textContent = `v${h.ytdlp_version}`;
           diagYtdlp.style.color = '#6bd29d';
@@ -619,6 +803,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           diagFfmpeg.textContent = `v${h.ffmpeg_version}`;
           diagFfmpeg.style.color = '#6bd29d';
         }
+      } else {
+        hostBubble.className = 'status-bubble offline';
+        hostLabel.textContent = 'Disconnected / Setup Required';
+        if (hostSetupGuide) hostSetupGuide.classList.remove('hidden');
       }
     }
   } catch {}
@@ -643,6 +831,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.body.classList.add('ready');
     document.documentElement.classList.remove('preload');
   }, 200);
+
+  // Initialize OS selector tab & check hash for direct setup navigation
+  updateOSTab(selectedOS);
+  checkUrlHash();
 
   // Background host test & GitHub update check (silent, no popup toast on startup)
   testHost(false);

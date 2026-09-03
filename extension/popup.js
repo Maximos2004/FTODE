@@ -1102,6 +1102,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    if (!isHostConnected) {
+      alert('FTODE Companion Host is not detected.\n\nOpening the Setup guide so you can download and run the 1-click installer.');
+      openSetupPage();
+      return;
+    }
+
     if (currentSettings.enableDebug) {
       showTerminal(true);
     }
@@ -1263,13 +1269,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     showTerminal(!isTerminalVisible);
   });
 
+  function openSetupPage() {
+    const setupUrl = chrome.runtime.getURL('options.html#host-setup');
+    if (chrome.tabs && chrome.tabs.create) {
+      chrome.tabs.create({ url: setupUrl });
+    } else {
+      chrome.runtime.openOptionsPage();
+    }
+  }
+
   btnOptions.addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
   });
 
-  btnSetupHost.addEventListener('click', () => {
-    chrome.runtime.openOptionsPage();
+  btnSetupHost.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openSetupPage();
   });
+
+  if (hostAlert) {
+    hostAlert.addEventListener('click', openSetupPage);
+  }
 
   btnCancelJob.addEventListener('click', async () => {
     if (currentJob) {

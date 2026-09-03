@@ -797,6 +797,273 @@ input:checked + .slider:before {
   color: var(--text-pure);
 }
 
+/* ==========================================================================
+   Companion Host Setup Guide & Downloader
+   ========================================================================== */
+.host-setup-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 18px;
+  animation: fadeIn 0.25s ease;
+}
+
+.setup-banner-alert {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  transition: var(--theme-transition);
+}
+
+.setup-banner-icon {
+  color: #f59e0b;
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.setup-banner-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #fbbf24;
+  line-height: 1.25;
+}
+
+.setup-banner-desc {
+  font-size: 11.5px;
+  color: var(--text-sub);
+  line-height: 1.45;
+  margin-top: 3px;
+}
+
+.os-selector-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.os-selector-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.os-tabs {
+  display: flex;
+  background: var(--bg-input);
+  padding: 3px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  gap: 2px;
+}
+
+.os-tab {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: 'Outfit', sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: var(--transition);
+}
+
+.os-tab.active {
+  background: var(--bg-card);
+  color: var(--text-pure);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-subtle);
+}
+
+.os-tab:hover:not(.active) {
+  color: var(--text-main);
+}
+
+/* Setup Download Button - sleek pill matching the theme */
+.btn-setup-download {
+  width: 100%;
+  justify-content: center;
+  height: 42px;
+  font-size: 13px;
+  margin: 2px 0;
+}
+
+.btn-setup-download.downloading {
+  opacity: 0.8;
+  cursor: wait;
+}
+
+/* 3-Step Guided Timeline */
+.setup-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+
+.setup-step-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.step-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg-btn-secondary);
+  color: var(--accent-video);
+  font-family: 'Outfit', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid var(--border-subtle);
+  margin-top: 1px;
+}
+
+.step-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.step-heading {
+  font-family: 'Outfit', sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-pure);
+}
+
+.step-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.step-hint code {
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  color: var(--accent-video);
+  word-break: break-all;
+}
+
+/* Auto-Polling Radar Indicator */
+.auto-detect-radar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  color: var(--accent-playlist);
+}
+
+.radar-ping-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-playlist);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.radar-ping-dot::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-playlist);
+  animation: radarPing 1.8s infinite cubic-bezier(0, 0.2, 0.8, 1);
+}
+
+@keyframes radarPing {
+  0% {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* Pulse Highlight Animations when routed to setup */
+.highlight-pulse {
+  animation: setupCardPulse 1.2s ease-in-out 2 !important;
+}
+
+@keyframes setupCardPulse {
+  0%, 100% {
+    box-shadow: var(--shadow-card);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(245, 158, 11, 0.65), 0 0 50px rgba(245, 158, 11, 0.35);
+    border-color: #f59e0b;
+  }
+}
+
+.highlight-success {
+  animation: setupSuccessPulse 1.8s ease-out !important;
+}
+
+@keyframes setupSuccessPulse {
+  0% {
+    box-shadow: 0 0 35px rgba(16, 185, 129, 0.9), 0 0 70px rgba(16, 185, 129, 0.45);
+    border-color: #10b981;
+  }
+  100% {
+    box-shadow: var(--shadow-card);
+  }
+}
+
+/* Light Theme overrides for Companion Setup */
+.light-theme .setup-banner-alert {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(217, 119, 6, 0.4);
+}
+
+.light-theme .setup-banner-title {
+  color: #b45309;
+}
+
+.light-theme .setup-banner-icon {
+  color: #b45309;
+}
+
+.light-theme .step-hint code {
+  background: #e2e8f0;
+  color: #059669;
+}
+
+.light-theme .os-tab.active {
+  background: #ffffff;
+  color: #0f172a;
+}
+
 .diagnostics-panel {
   display: flex;
   flex-direction: column;

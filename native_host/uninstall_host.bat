@@ -17,6 +17,9 @@ if errorlevel 1 (
     reg delete "HKCU\Software\Google\Chrome\NativeMessagingHosts\com.ftode.host" /f >nul 2>&1
     reg delete "HKCU\Software\Microsoft\Edge\NativeMessagingHosts\com.ftode.host" /f >nul 2>&1
     reg delete "HKCU\Software\Chromium\NativeMessagingHosts\com.ftode.host" /f >nul 2>&1
+    reg delete "HKCU\Software\Opera Software\NativeMessagingHosts\com.ftode.host" /f >nul 2>&1
+    reg delete "HKCU\Software\Opera Software\Opera GX\NativeMessagingHosts\com.ftode.host" /f >nul 2>&1
+    reg delete "HKCU\Software\Opera Software\Opera Stable\NativeMessagingHosts\com.ftode.host" /f >nul 2>&1
     reg delete "HKCU\Software\Mozilla\NativeMessagingHosts\com.ftode.host" /f >nul 2>&1
     echo [v] Registry keys removed successfully!
 )

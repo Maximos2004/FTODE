@@ -79,11 +79,15 @@ if errorlevel 1 (
     set "REG_KEY_CHROME=HKCU\Software\Google\Chrome\NativeMessagingHosts\com.ftode.host"
     set "REG_KEY_EDGE=HKCU\Software\Microsoft\Edge\NativeMessagingHosts\com.ftode.host"
     set "REG_KEY_CHROMIUM=HKCU\Software\Chromium\NativeMessagingHosts\com.ftode.host"
+    set "REG_KEY_OPERA=HKCU\Software\Opera Software\NativeMessagingHosts\com.ftode.host"
+    set "REG_KEY_OPERAGX=HKCU\Software\Opera Software\Opera GX\NativeMessagingHosts\com.ftode.host"
     set "REG_KEY_MOZILLA=HKCU\Software\Mozilla\NativeMessagingHosts\com.ftode.host"
     set "FIREFOX_MANIFEST_PATH=%SCRIPT_DIR%com.ftode.host-firefox.json"
     reg add "!REG_KEY_CHROME!" /ve /t REG_SZ /d "%MANIFEST_PATH%" /f >nul 2>&1
     reg add "!REG_KEY_EDGE!" /ve /t REG_SZ /d "%MANIFEST_PATH%" /f >nul 2>&1
     reg add "!REG_KEY_CHROMIUM!" /ve /t REG_SZ /d "%MANIFEST_PATH%" /f >nul 2>&1
+    reg add "!REG_KEY_OPERA!" /ve /t REG_SZ /d "%MANIFEST_PATH%" /f >nul 2>&1
+    reg add "!REG_KEY_OPERAGX!" /ve /t REG_SZ /d "%MANIFEST_PATH%" /f >nul 2>&1
     reg add "!REG_KEY_MOZILLA!" /ve /t REG_SZ /d "!FIREFOX_MANIFEST_PATH!" /f >nul 2>&1
     if errorlevel 1 (
         color 0C 2>nul

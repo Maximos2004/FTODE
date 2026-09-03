@@ -214,8 +214,8 @@
 
       <!-- Right Column: Host Setup & Status -->
       <div class="sidebar-column">
-        <!-- Native Host Status Card -->
-        <section class="card host-card">
+        <!-- Native Companion Host & Setup Card -->
+        <section class="card host-card" id="host-setup-card">
           <div class="card-header">
             <div class="card-icon host-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
@@ -227,17 +227,94 @@
               </svg>
             </div>
             <div>
-              <h2 class="card-title">Native Messaging Host</h2>
-              <p class="card-desc">Local Python backend bridge</p>
+              <h2 class="card-title">Companion Host &amp; Setup</h2>
+              <p class="card-desc">Native downloader engine (yt-dlp &amp; FFmpeg)</p>
             </div>
           </div>
 
+          <!-- Connection Status Box -->
           <div class="host-status-box" id="host-status-box">
             <div class="status-indicator">
               <span class="status-bubble" id="host-bubble"></span>
               <span class="status-label" id="host-label">Checking Host...</span>
             </div>
-            <button id="btn-test-host" class="btn-pill-sm">Test Connection</button>
+            <button id="btn-test-host" class="btn-pill-sm" title="Manually test Native Messaging connection">Test Connection</button>
+          </div>
+
+          <!-- Setup Guide Container (Visible ONLY when host is disconnected or when re-opened) -->
+          <div class="host-setup-guide hidden" id="host-setup-guide">
+            <div class="setup-banner-alert">
+              <div class="setup-banner-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              </div>
+              <div class="setup-banner-text">
+                <div class="setup-banner-title">Companion Host Required for Downloads</div>
+                <div class="setup-banner-desc">Browser extensions cannot save files directly or run video converters on their own. FTODE requires a 1-click companion installer on your computer.</div>
+              </div>
+            </div>
+
+            <!-- OS Platform Selector Tabs -->
+            <div class="os-selector-row">
+              <span class="os-selector-label">Operating System:</span>
+              <div class="os-tabs">
+                <button type="button" class="os-tab active" id="tab-os-win" data-os="win">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+                  <span>Windows</span>
+                </button>
+                <button type="button" class="os-tab" id="tab-os-linux" data-os="linux">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12.002 0c-4.148 0-7.512 3.364-7.512 7.512 0 1.83.655 3.513 1.748 4.825C5.032 13.57 3.5 15.657 3.5 18.067c0 3.276 3.806 5.933 8.502 5.933s8.502-2.657 8.502-5.933c0-2.41-1.532-4.497-2.738-5.73 1.093-1.312 1.748-2.995 1.748-4.825 0-4.148-3.364-7.512-7.512-7.512z"/></svg>
+                  <span>Linux</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Setup Download Button -->
+            <button type="button" id="btn-download-setup" class="btn-primary btn-setup-download">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span id="btn-dl-title">Download Host Setup (.exe)</span>
+            </button>
+
+            <!-- 3-Step Guided Timeline -->
+            <div class="setup-steps-list">
+              <div class="setup-step-row">
+                <div class="step-badge">1</div>
+                <div class="step-detail">
+                  <span class="step-heading" id="step-heading-1">Download Setup</span>
+                  <span class="step-hint" id="step-hint-1">Click the button above to download <code id="step-archive-name">FTODE-Host-Setup-Windows.exe</code>.</span>
+                </div>
+              </div>
+
+              <div class="setup-step-row">
+                <div class="step-badge">2</div>
+                <div class="step-detail">
+                  <span class="step-heading" id="step-heading-2">Run Setup Wizard</span>
+                  <span class="step-hint" id="step-run-hint">Run the downloaded file to install the companion host. It automatically configures browser registries, installs yt-dlp &amp; FFmpeg, and integrates with Windows Control Panel.</span>
+                </div>
+              </div>
+
+              <div class="setup-step-row">
+                <div class="step-badge">3</div>
+                <div class="step-detail">
+                  <span class="step-heading">Automatic Connection</span>
+                  <span class="step-hint">Once setup finishes, this page will automatically detect the host. No browser restart required!</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Auto-Polling Radar Indicator -->
+            <div class="auto-detect-radar" id="auto-detect-radar">
+              <div class="radar-ping-dot"></div>
+              <span class="radar-text" id="radar-text">Auto-detecting host connection in background...</span>
+            </div>
           </div>
 
           <div class="diagnostics-panel" id="diagnostics-panel">
@@ -257,7 +334,7 @@
                 <img src="icons/icon16.png" class="diag-inline-icon" alt="FTODE" width="18" height="18">
                 Extension Version:
               </span>
-              <code id="diag-ext-version" style="color: #6bd29d;">v1.0.2</code>
+              <code id="diag-ext-version" style="color: #6bd29d;">v1.0.3</code>
             </div>
             <div class="diag-item">
               <span class="diag-key">
@@ -359,7 +436,7 @@
     <!-- Subtle Footer Credits -->
     <footer class="options-footer">
       <div class="footer-credit-text">
-        <span>FTODE <b id="footer-version">v1.0.2</b></span>
+        <span>FTODE <b id="footer-version">v1.0.3</b></span>
         <span class="footer-dot">•</span>
         <span>Created by <b>MaxAkt</b></span>
         <span class="footer-dot">•</span>

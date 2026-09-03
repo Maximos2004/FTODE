@@ -38,11 +38,13 @@ $firefoxManifestContent = @{
 }
 $firefoxManifestContent | ConvertTo-Json -Depth 5 | Set-Content -Path $FirefoxManifestPath -Encoding UTF8
 
-# Create Windows Registry Keys for Chrome, Edge, Chromium, and Firefox
+# Create Windows Registry Keys for Chrome, Edge, Chromium, Opera, and Firefox
 $RegMappings = @(
     @{ Path = "HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.ftode.host"; Manifest = $ChromeManifestPath; Browser = "Google Chrome" },
     @{ Path = "HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.ftode.host"; Manifest = $ChromeManifestPath; Browser = "Microsoft Edge" },
-    @{ Path = "HKCU:\Software\Chromium\NativeMessagingHosts\com.ftode.host"; Manifest = $ChromeManifestPath; Browser = "Chromium / Opera / Brave" },
+    @{ Path = "HKCU:\Software\Chromium\NativeMessagingHosts\com.ftode.host"; Manifest = $ChromeManifestPath; Browser = "Chromium / Brave" },
+    @{ Path = "HKCU:\Software\Opera Software\NativeMessagingHosts\com.ftode.host"; Manifest = $ChromeManifestPath; Browser = "Opera" },
+    @{ Path = "HKCU:\Software\Opera Software\Opera GX\NativeMessagingHosts\com.ftode.host"; Manifest = $ChromeManifestPath; Browser = "Opera GX" },
     @{ Path = "HKCU:\Software\Mozilla\NativeMessagingHosts\com.ftode.host"; Manifest = $FirefoxManifestPath; Browser = "Mozilla Firefox" }
 )
 

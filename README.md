@@ -128,10 +128,12 @@ Right-click the extension icon and choose **Options** (or click the gear icon in
 If you want to package the project into zip files to share:
 - Run **`build.bat`** (or `python build.py`).
 - It automatically creates standalone release bundles in `dist/`:
-  - **`FTODE-v1.0.2-Windows.zip`** (for Windows users)
-  - **`FTODE-v1.0.2-Linux.zip`** (for Linux users)
-  - **`FTODE-Extension-Chrome-v1.0.2.zip`** (Chrome / Chromium extension)
-  - **`FTODE-Extension-Firefox-v1.0.2.zip`** (Firefox extension)
+  - **`FTODE-v1.0.3-Windows.zip`** (Full package for Windows users)
+  - **`FTODE-v1.0.3-Linux.zip`** (Full package for Linux users)
+  - **`FTODE-Extension-Chrome-v1.0.3.zip`** (Chrome / Opera / Edge extension)
+  - **`FTODE-Extension-Firefox-v1.0.3.zip`** (Firefox AMO extension)
+  - **`FTODE-Host-Setup-Windows.zip`** (Dedicated host setup for Windows store extension users)
+  - **`FTODE-Host-Setup-Linux.zip`** (Dedicated host setup for Linux users)
 
 ---
 

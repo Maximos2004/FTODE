@@ -76,7 +76,7 @@ if (chrome.storage && chrome.storage.session) {
 /**
  * Initialize default settings in storage if not set
  */
-chrome.runtime.onInstalled.addListener(async () => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   try {
     const existing = await chrome.storage.sync.get(null);
     const toSet = {};
@@ -87,6 +87,14 @@ chrome.runtime.onInstalled.addListener(async () => {
     }
     if (Object.keys(toSet).length > 0) {
       await chrome.storage.sync.set(toSet);
+    }
+
+    // On fresh install, check if native host is present; if not, open options setup guide
+    if (details && details.reason === 'install') {
+      const hostRes = await testNativeHost();
+      if (!hostRes || !hostRes.connected) {
+        chrome.runtime.openOptionsPage();
+      }
     }
   } catch (err) {
     console.error('[FTODE] Storage init error:', err);
